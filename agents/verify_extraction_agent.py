@@ -60,6 +60,7 @@ FEEDBACK: [Detailed list of specific errors to fix - which numbers are wrong, wh
     ]
 
     writer("🔍 Comparing data with image...")
+    print("extracted_str", extracted_str)
     response = vision_model.invoke(messages)
     content = (response.content or "").strip().upper()
 

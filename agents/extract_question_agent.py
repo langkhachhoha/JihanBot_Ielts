@@ -26,8 +26,8 @@ def extract_question_node(
                 {
                     "type": "text",
                     "text": """You are an expert at reading IELTS Writing Task 1 exam questions.
-Extract and transcribe the complete question/prompt from this image exactly as it appears.
-Include all instructions, charts, graphs, or tables descriptions that are part of the question.
+Extract ONLY the written task prompt and instructions from the image.
+Do NOT include any text, labels, or data found inside the charts/graphs/tables.
 Output ONLY the raw extracted text, nothing else.""",
                 },
                 {

@@ -1,7 +1,7 @@
 """LangGraph workflow for JihanBot IELTS Writing Task 1 pipeline."""
 
 from langgraph.graph import START, END, StateGraph
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.memory import InMemorySaver
 
 from schemas.state import JihanState
 from agents import (
@@ -43,9 +43,10 @@ def create_jihan_graph():
     builder.add_edge("extract_question", "extract_features")
     builder.add_edge("extract_features", "verify_extraction")
     builder.add_conditional_edges("verify_extraction", _route_after_verification)
+    # builder.add_edge("extract_features", "write_essay")
     builder.add_edge("write_essay", "grade_essay")
     builder.add_conditional_edges("grade_essay", _route_after_grading)
 
     # Compile with checkpointing for state persistence
-    memory = MemorySaver()
+    memory = InMemorySaver()
     return builder.compile(checkpointer=memory)
