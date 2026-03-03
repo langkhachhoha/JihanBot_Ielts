@@ -2,7 +2,7 @@
 
 Pipeline sinh bài IELTS Writing Task 1 từ hình ảnh đề bài, sử dụng LangGraph để điều khiển luồng xử lý có điều kiện và retry.
 
-![Workflow](workflow.png)
+![Workflow](workflow-v2.png)
 
 ## Tổng quan
 
