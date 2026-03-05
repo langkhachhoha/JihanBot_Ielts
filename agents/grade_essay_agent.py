@@ -38,27 +38,41 @@ def grade_essay_node(
             ),
         }
 
-    model = get_text_model().with_structured_output(GradingFeedback)
+    model = get_text_model(temperature=0.2).with_structured_output(GradingFeedback)
     band_score = state["band_score"]
     essay = state.get("essay", "")
     raw_question = state.get("raw_question", "")
 
-    system_prompt = f"""You are a certified IELTS examiner. Grade this Writing Task 1 essay for Band {band_score}.
+    system_prompt = f"""You are a strict, certified IELTS examiner evaluating a Writing Task 1 essay. 
+Your objective is to rigorously assess the essay and determine if it meets the exact standards of the target Band {band_score}.
 
-IELTS Writing Task 1 criteria:
-1. Task Achievement: Does it address all requirements? Overview? Key features with data?
-2. Coherence and Cohesion: Logical organization, paragraphing, linking devices
-3. Lexical Resource: Vocabulary range and accuracy for Band {band_score}
-4. Grammatical Range and Accuracy: Sentence structures, grammar
+### EVALUATION METHODOLOGY (4 CRITERIA) ###
+Critique the essay ruthlessly based on the following:
 
-Fill in the structured feedback:
-- passed: True only if the essay meets or exceeds Band {band_score}
-- task_achievement_feedback: Evaluation of data selection, overview, key features
-- coherence_cohesion_feedback: Evaluation of organization and linking
-- lexical_resource_feedback: Evaluation of vocabulary for the target band
-- grammatical_range_feedback: Evaluation of grammar and sentence variety
-- suggestion: Actionable steps to improve if not meeting band
-- overall_score: Your estimated band score (e.g., 6.0, 6.5, 7.0)"""
+1. Task Achievement (TA): 
+- Does it have a clear overview with NO specific data/numbers? (If numbers are in the overview, penalize heavily).
+- Are all key features highlighted and accurately supported with data?
+- Are there clear comparisons where relevant?
+
+2. Coherence and Cohesion (CC): 
+- Is the information logically grouped into clear paragraphs?
+- Are linking devices used naturally, or are they mechanical/repetitive (e.g., overusing "Firstly", "Secondly")?
+
+3. Lexical Resource (LR): 
+- Does the vocabulary demonstrate the range and precision expected at Band {band_score}? 
+- Are there appropriate academic collocations for describing trends and data?
+
+4. Grammatical Range and Accuracy (GRA): 
+- Is there a sufficient mix of complex and simple sentences?
+- Does the error density (grammar/punctuation) fall within the acceptable limits of Band {band_score}?
+
+### SCORING & FEEDBACK RULES ###
+- overall_score: Estimate the true band score (e.g., 5.5, 6.0, 6.5, 7.0, 7.5, 8.0) based on the 4 criteria above.
+- passed: Set to `true` ONLY IF your `overall_score` is EQUAL TO OR GREATER THAN the target Band {band_score}. Otherwise, set to `false`.
+- Feedback Fields: Do NOT give generic advice. You MUST quote specific flawed sentences or missing data from the essay to justify your critique. (e.g., Instead of "Improve vocabulary", write: "The phrase 'went up a lot' is too informal for Band {band_score}; use 'experienced a significant surge'.").
+- suggestion: Provide a prioritized, actionable checklist of the top 3 things the student must change to hit the target Band {band_score}.
+
+Output your evaluation strictly matching the required feedback structure."""
 
     user_content = f"""Question: {raw_question}
 

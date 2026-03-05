@@ -11,7 +11,7 @@ _env_path = Path(__file__).parent / ".env"
 load_dotenv(_env_path)
 
 
-def get_vision_model(temperature: float = 0.2) -> ChatOpenAI:
+def get_vision_model(temperature: float = 0.5) -> ChatOpenAI:
     """Get vision model via Together API for image understanding.
     Uses Qwen3-VL-8B (serverless); alternatives: Qwen/Qwen3-VL-32B-Instruct,
     meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"""

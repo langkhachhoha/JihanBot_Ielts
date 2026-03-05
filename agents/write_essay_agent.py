@@ -39,6 +39,26 @@ def _format_grading_feedback(fb) -> str:
             parts.append(f"Estimated score: {fb['overall_score']}")
     return "\n".join(parts) if parts else str(fb)
 
+def _format_features(features) -> str:
+    """Format ExtractedFeedback for the correction prompt."""
+    if features is None:
+        return ""
+    parts = []
+    if hasattr(features , "overview") and features.overview:
+        parts.append(f"Overview: {features.overview}")
+    if hasattr(features, "paragraph_1") and features.paragraph_1:
+        parts.append(f"Paragraph 1: {features.paragraph_1}")
+    if hasattr(features, "paragraph_2") and features.paragraph_2:
+        parts.append(f"Paragraph 2: {features.paragraph_2}")
+    if isinstance(features, dict):
+        if features.get("overview"):
+            parts.append(f"Overview: {features['overview']}")
+        if features.get("paragraph_1"):
+            parts.append(f"Paragraph 1: {features['paragraph_1']}")
+        if features.get("paragraph_2"):
+            parts.append(f"Paragraph 2: {features['paragraph_2']}")
+    return "\n\n".join(parts) if parts else str(features)
+
 
 def write_essay_node(
     state: JihanState,
@@ -62,24 +82,66 @@ def write_essay_node(
     raw_question = state["raw_question"]
     features = state.get("extracted_features")
 
-    features_str = features.model_dump_json(indent=2) if features and hasattr(features, "model_dump_json") else str(features or {})
+    features_str = _format_features(features)
 
-    system_prompt = f"""You are an expert IELTS Writing Task 1 tutor. Write a complete essay that would score Band {band_score}.
+    system_prompt = f"""You are an elite IELTS former examiner and expert essay writer. Your task is to write a COMPLETE IELTS Writing Task 1 essay based on the provided data outline.
 
-IELTS Task 1 structure:
-- Overview (2-3 sentences): Summarize main trends
-- Body paragraph 1: Detail first main feature
-- Body paragraph 2: Detail second main feature
+CRITICAL INSTRUCTION: You must precisely calibrate your writing to score EXACTLY a Band {band_score}. Do not overwrite or underwrite. If a Band 6.0 is requested, write like a Band 6.0 student. If an 8.5 is requested, write at a near-native academic level.
 
-Band {band_score} expectations:
-- Use vocabulary and grammar appropriate for Band {band_score}
-- Include relevant data and comparisons
-- Write 150+ words
-- Be clear and coherent"""
+### STRICT STRUCTURAL REQUIREMENTS ###
+1. Introduction (1 sentence): Paraphrase the original question/prompt accurately.
+2. Overview (1-2 sentences): Summarize the macro-trends and key features. STRICTLY NO NUMBERS OR EXACT DATA in this paragraph.
+3. Body Paragraph 1: Seamlessly translate the provided bullet points for the first data group into cohesive sentences.
+4. Body Paragraph 2: Seamlessly translate the provided bullet points for the remaining data group into cohesive sentences.
+
+### BAND {band_score} EXECUTION CALIBRATION ###
+To perfectly mimic a Band {band_score} performance, dynamically adjust your output across the 4 marking criteria:
+
+- Task Achievement (TA): 
+  (Band 5-6: May lack clear comparisons or leave out key data. Band 7: Clear overview and good focus. Band 8+: Skillful highlighting of key differences and perfectly accurate data translation).
+- Coherence and Cohesion (CC): 
+  (Band 5-6: Mechanical, repetitive, or faulty linking words like "Firstly", "In addition". Band 7: Logical progression with a range of cohesive devices. Band 8+: Seamless, invisible transitions and sophisticated referencing).
+- Lexical Resource (LR): 
+  (Band 5-6: Basic, everyday vocabulary with some repetition or inappropriate word choices. Band 7: Uses less common vocabulary with some awareness of style. Band 8+: Precise, sophisticated collocations, and uncommon lexical items used naturally).
+- Grammatical Range and Accuracy (GRA): 
+  (Band 5-6: Mix of simple and complex sentences, frequent grammatical or punctuation errors. Band 7: Good control of grammar, frequent error-free sentences. Band 8+: Wide range of flexible, complex structures; the majority of sentences are error-free).
+
+### GENERATION RULES ###
+- GROUND TRUTH: You must ONLY use the data points, numbers, and trends provided in the input outline. DO NOT hallucinate, invent, or assume any information.
+- LENGTH: Ensure the essay is at least 150 words.
+- OUTPUT FORMAT: Output ONLY the raw text of the essay. Do not include titles, markdown formatting, greetings, or meta-commentary about the band score.
+"""
 
     if grading_feedback and _grading_needs_revision(grading_feedback):
         feedback_str = _format_grading_feedback(grading_feedback)
-        system_prompt += f"\n\nREVISE the following essay based on this feedback:\n{feedback_str}\n\nPrevious essay to improve:\n{previous_essay}"
+        system_prompt = f"""You are an expert IELTS Writing Task 1 editor. Your task is to EDIT and REFINE an existing essay draft based on specific examiner feedback to ensure it exactly meets the standards of a Band {band_score}.
+
+### EDITING PHILOSOPHY & CONSTRAINTS ###
+- DO NOT rewrite the essay from scratch.
+- PRESERVE the original essay's structure, flow, and correct sentences as much as possible.
+- Make targeted, precise modifications ONLY where necessary to address the feedback and achieve the target Band {band_score}.
+
+### TARGET BAND {band_score} CALIBRATION ###
+When making your specific edits, adjust the text to reflect:
+- Task Achievement: Fix any inaccurate data, missing key features, or hallucinations explicitly mentioned in the feedback.
+- Coherence & Cohesion: Improve linking words or paragraph transitions ONLY if they are flagged in the feedback or fall short of the Band {band_score} level.
+- Lexical Resource: Upgrade (or downgrade) specific vocabulary and collocations to match a Band {band_score} profile. Replace inappropriate word choices.
+- Grammatical Range & Accuracy: Correct specific grammar or punctuation errors. Adjust sentence complexity only where needed to match Band {band_score} expectations.
+
+### INPUTS FOR REVISION ###
+
+EXPERT FEEDBACK:
+{feedback_str}
+
+EXISTING ESSAY DRAFT TO EDIT:
+{previous_essay}
+
+### EXECUTION RULES ###
+1. Map the feedback strictly to the flawed sentences in the existing draft.
+2. Apply the corrections seamlessly into the existing text without altering the surrounding correct information.
+3. Ground Truth Verification: Ensure all modified data perfectly aligns with the original requirements. Do not invent new data during the editing process.
+4. Output Format: Output ONLY the final, edited raw text of the essay. Do not include markdown formatting, titles, introductory phrases (e.g., "Here is the edited essay..."), or explanations of your edits.
+"""
 
     user_content = f"""Question: {raw_question}
 
