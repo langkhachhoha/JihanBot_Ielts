@@ -36,6 +36,26 @@ def _format_feedback(fb) -> str:
     return "\n\n".join(parts) if parts else str(fb)
 
 
+def _format_features(features) -> str:
+    """Format ExtractedFeedback for the correction prompt."""
+    if features is None:
+        return ""
+    parts = []
+    if hasattr(features , "overview") and features.overview:
+        parts.append(f"Overview: {features.overview}")
+    if hasattr(features, "paragraph_1") and features.paragraph_1:
+        parts.append(f"Paragraph 1: {features.paragraph_1}")
+    if hasattr(features, "paragraph_2") and features.paragraph_2:
+        parts.append(f"Paragraph 2: {features.paragraph_2}")
+    if isinstance(features, dict):
+        if features.get("overview"):
+            parts.append(f"Overview: {features['overview']}")
+        if features.get("paragraph_1"):
+            parts.append(f"Paragraph 1: {features['paragraph_1']}")
+        if features.get("paragraph_2"):
+            parts.append(f"Paragraph 2: {features['paragraph_2']}")
+    return "\n\n".join(parts) if parts else str(features)
+
 def extract_features_node(
     state: JihanState,
     *,
@@ -107,16 +127,16 @@ paragraph_2:
 grouping_logic:
 "I will group the information by visual format and theme: Paragraph 1 will focus exclusively on the bar chart to analyze the shifting motives for studying across ages, while Paragraph 2 will analyze the pie charts to discuss the varying levels of employer support."
 """
-
-    if extraction_feedback and not _feedback_passed(extraction_feedback):
-        feedback_str = _format_feedback(extraction_feedback)
-        prev_str = extracted_features.model_dump_json(indent=2) if hasattr(extracted_features, "model_dump_json") else str(extracted_features or "N/A")
-        system_prompt += f"\n\nIMPORTANT - Previous extraction had errors. Please correct based on this feedback:\n{feedback_str}\n\nYour previous (incorrect) extraction was:\n{prev_str}"
-
     user_content = [
         {"type": "text", "text": f"Question: {raw_question}\n\nExtract features from this IELTS Task 1 image:"},
         {"type": "image_url", "image_url": {"url": image_url}},
     ]
+
+    if extraction_feedback and not _feedback_passed(extraction_feedback):
+        feedback_str = _format_feedback(extraction_feedback)
+        prev_str = _format_features(extracted_features)
+        system_prompt += f"\n\nIMPORTANT - Previous extraction had errors. Please correct based on this feedback:\n{feedback_str}\n\nYour previous (incorrect) extraction was:\n{prev_str}"
+
 
     writer("📊 Analyzing visual data...")
     messages = [
