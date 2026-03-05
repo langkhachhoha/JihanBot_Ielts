@@ -132,10 +132,38 @@ grouping_logic:
         {"type": "image_url", "image_url": {"url": image_url}},
     ]
 
+
+
     if extraction_feedback and not _feedback_passed(extraction_feedback):
         feedback_str = _format_feedback(extraction_feedback)
         prev_str = _format_features(extracted_features)
-        system_prompt += f"\n\nIMPORTANT - Previous extraction had errors. Please correct based on this feedback:\n{feedback_str}\n\nYour previous (incorrect) extraction was:\n{prev_str}"
+        system_prompt = system_prompt = f"""You are an expert IELTS tutor refining a Writing Task 1 data outline based on reviewer feedback.
+Below is your previous extraction and the feedback provided. 
+
+CRITICAL RULE: The reviewer's feedback might contain errors or hallucinations. Your ULTIMATE source of truth is ALWAYS the original visual. 
+You must critically evaluate the feedback before applying it:
+- ACCEPT and apply the feedback ONLY if it correctly points out missed data, factual errors, or superior grouping logic based on the image.
+- IGNORE any feedback that contradicts the visual evidence, hallucinates non-existent data, or suggests incorrect changes.
+
+### REVIEWER FEEDBACK ###
+{feedback_str}
+
+### PREVIOUS EXTRACTION ###
+{prev_str}
+
+### INSTRUCTIONS FOR CORRECTION ###
+1. Cross-check every point in the reviewer feedback against the original visual.
+2. Fix your genuine inaccuracies and add actual missing data points.
+3. Keep the correct parts of your previous extraction intact. Do not change accurate data just because of vague feedback.
+4. STRICT FORMATTING: Maintain the exact same bullet-point outline style for `overview`, `paragraph_1`, and `paragraph_2`. Do NOT write full paragraphs.
+5. Update the `grouping_logic` only if the suggested grouping is logically superior and strictly aligns with the visual.
+
+Output the fully corrected version strictly following the required structured format."""
+
+        user_content = [
+        {"type": "text", "text": f"Question: {raw_question}\n\nPlease RE-EVALUATE this IELTS Task 1 image and CORRECT your previous extraction. Remember, this image is your ULTIMATE source of truth to verify the feedback."},
+        {"type": "image_url", "image_url": {"url": image_url}},
+    ]
 
 
     writer("📊 Analyzing visual data...")
