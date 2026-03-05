@@ -45,14 +45,26 @@ def run_jihan_bot(image_path: str, band_score: str = "7"):
     print(f"Target Band: {band_score}")
     print("=" * 60)
 
-    # Stream with custom mode to show processing messages
+    # Stream: custom = processing messages, messages = LLM tokens
     for chunk in graph.stream(
         initial_state,
         config=config,
-        stream_mode="custom",
+        stream_mode=["custom", "messages"],
     ):
-        # chunk is the custom data from writer()
-        if chunk:
+        # Chunk format: (mode, data) or (namespace, mode, data)
+        if isinstance(chunk, tuple):
+            if len(chunk) == 3:
+                _ns, mode, data = chunk
+            else:
+                mode, data = chunk
+            if mode == "custom" and data:
+                print(data)
+            elif mode == "messages" and data:
+                msg, _meta = data
+                content = getattr(msg, "content", None) or ""
+                if isinstance(content, str) and content:
+                    print(content, end="", flush=True)
+        elif chunk:
             print(chunk)
 
     # Get final state

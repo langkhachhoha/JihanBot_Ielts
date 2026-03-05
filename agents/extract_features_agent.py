@@ -33,7 +33,7 @@ def _format_feedback(fb) -> str:
             parts.append(f"Paragraph 1: {fb['paragraph_1_feedback']}")
         if fb.get("paragraph_2_feedback"):
             parts.append(f"Paragraph 2: {fb['paragraph_2_feedback']}")
-    return "\n".join(parts) if parts else str(fb)
+    return "\n\n".join(parts) if parts else str(fb)
 
 
 def extract_features_node(
