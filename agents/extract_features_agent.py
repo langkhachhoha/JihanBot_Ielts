@@ -1,12 +1,39 @@
-"""Node 2: Extract chart/graph features (overview, paragraphs, data points) from image."""
+"""Node 2: Extract chart/graph features (overview, paragraphs, grouping_logic) from image."""
 
-import json
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.types import StreamWriter
 
 from config import get_vision_model
-from schemas.state import JihanState, ExtractedFeatures
+from schemas.state import JihanState, ExtractedFeatures, ExtractedFeedback
 from utils.image import load_image_as_base64
+
+
+def _feedback_passed(fb) -> bool:
+    """Check if extraction_feedback indicates pass (no correction needed)."""
+    if fb is None:
+        return True
+    return fb.passed if hasattr(fb, "passed") else (fb.get("passed", True) if isinstance(fb, dict) else True)
+
+
+def _format_feedback(fb) -> str:
+    """Format ExtractedFeedback for the correction prompt."""
+    if fb is None:
+        return ""
+    parts = []
+    if hasattr(fb, "overview_feedback") and fb.overview_feedback:
+        parts.append(f"Overview: {fb.overview_feedback}")
+    if hasattr(fb, "paragraph_1_feedback") and fb.paragraph_1_feedback:
+        parts.append(f"Paragraph 1: {fb.paragraph_1_feedback}")
+    if hasattr(fb, "paragraph_2_feedback") and fb.paragraph_2_feedback:
+        parts.append(f"Paragraph 2: {fb.paragraph_2_feedback}")
+    if isinstance(fb, dict):
+        if fb.get("overview_feedback"):
+            parts.append(f"Overview: {fb['overview_feedback']}")
+        if fb.get("paragraph_1_feedback"):
+            parts.append(f"Paragraph 1: {fb['paragraph_1_feedback']}")
+        if fb.get("paragraph_2_feedback"):
+            parts.append(f"Paragraph 2: {fb['paragraph_2_feedback']}")
+    return "\n".join(parts) if parts else str(fb)
 
 
 def extract_features_node(
@@ -15,13 +42,13 @@ def extract_features_node(
     writer: StreamWriter,
 ) -> dict:
     """
-    Extract data features from the image. If extraction_feedback exists in state,
+    Extract data features from the image. If extraction_feedback exists and passed=False,
     correct the previous extraction based on the feedback.
     """
-    extraction_feedback = state.get("extraction_feedback", "")
+    extraction_feedback = state.get("extraction_feedback")
     extracted_features = state.get("extracted_features")
 
-    if extraction_feedback:
+    if extraction_feedback and not _feedback_passed(extraction_feedback):
         writer("🔄 Processing: Correcting extracted features based on feedback...")
     else:
         writer("📊 Processing: Extracting chart/graph features from image...")
@@ -81,8 +108,10 @@ grouping_logic:
 "I will group the information by visual format and theme: Paragraph 1 will focus exclusively on the bar chart to analyze the shifting motives for studying across ages, while Paragraph 2 will analyze the pie charts to discuss the varying levels of employer support."
 """
 
-    if extraction_feedback:
-        system_prompt += f"\n\nIMPORTANT - Previous extraction had errors. Please correct based on this feedback:\n{extraction_feedback}\n\nYour previous (incorrect) extraction was:\n{json.dumps(extracted_features, indent=2) if extracted_features else 'N/A'}"
+    if extraction_feedback and not _feedback_passed(extraction_feedback):
+        feedback_str = _format_feedback(extraction_feedback)
+        prev_str = extracted_features.model_dump_json(indent=2) if hasattr(extracted_features, "model_dump_json") else str(extracted_features or "N/A")
+        system_prompt += f"\n\nIMPORTANT - Previous extraction had errors. Please correct based on this feedback:\n{feedback_str}\n\nYour previous (incorrect) extraction was:\n{prev_str}"
 
     user_content = [
         {"type": "text", "text": f"Question: {raw_question}\n\nExtract features from this IELTS Task 1 image:"},
@@ -94,30 +123,19 @@ grouping_logic:
         SystemMessage(content=system_prompt),
         HumanMessage(content=user_content),
     ]
-    response = vision_model.invoke(messages)
-    content = response.content.strip() if response.content else "{}"
+    features = vision_model.invoke(messages)
 
-    # Parse JSON (handle markdown code blocks if present)
-    if "```json" in content:
-        content = content.split("```json")[1].split("```")[0].strip()
-    elif "```" in content:
-        content = content.split("```")[1].split("```")[0].strip()
-
-    try:
-        data = json.loads(content)
+    if not isinstance(features, ExtractedFeatures):
         features = ExtractedFeatures(
-            overview=data.get("overview", ""),
-            paragraph_1=data.get("paragraph_1", ""),
-            paragraph_2=data.get("paragraph_2", ""),
-            data_points=data.get("data_points", []),
-        )
-    except json.JSONDecodeError:
-        features = ExtractedFeatures(
-            overview=content,
+            overview=str(features) if features else "",
             paragraph_1="",
             paragraph_2="",
-            data_points=[],
+            grouping_logic="",
         )
 
     writer("✅ Features extracted successfully.")
-    return {"extracted_features": features, "extraction_feedback": ""}
+    # Clear extraction_feedback when returning new features (indicates no pending correction)
+    return {
+        "extracted_features": features,
+        "extraction_feedback": ExtractedFeedback(passed=True, overview_feedback="", paragraph_1_feedback="", paragraph_2_feedback=""),
+    }

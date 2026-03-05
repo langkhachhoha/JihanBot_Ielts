@@ -13,16 +13,24 @@ from agents import (
 )
 
 
+def _get_passed(state: JihanState, key: str) -> bool:
+    """Safely get .passed from ExtractedFeedback or GradingFeedback (may be model or dict)."""
+    val = state.get(key)
+    if val is None:
+        return True
+    return val.passed if hasattr(val, "passed") else val.get("passed", True)
+
+
 def _route_after_verification(state: JihanState) -> str:
     """Route from node_3: go to node_4 if verified or max retries, else back to node_2."""
-    if state.get("extraction_verified", False):
+    if _get_passed(state, "extraction_feedback"):
         return "write_essay"
     return "extract_features"
 
 
 def _route_after_grading(state: JihanState):
     """Route from node_5: go to END if passed or max retries, else back to node_4."""
-    if state.get("grading_passed", False):
+    if _get_passed(state, "grading_feedback"):
         return END
     return "write_essay"
 
@@ -43,7 +51,6 @@ def create_jihan_graph():
     builder.add_edge("extract_question", "extract_features")
     builder.add_edge("extract_features", "verify_extraction")
     builder.add_conditional_edges("verify_extraction", _route_after_verification)
-    # builder.add_edge("extract_features", "write_essay")
     builder.add_edge("write_essay", "grade_essay")
     builder.add_conditional_edges("grade_essay", _route_after_grading)
 

@@ -4,7 +4,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.types import StreamWriter
 
 from config import get_vision_model
-from schemas.state import JihanState
+from schemas.state import JihanState, ExtractedFeedback, ExtractedFeatures
 from utils.image import load_image_as_base64
 
 MAX_EXTRACTION_RETRIES = 3
@@ -16,8 +16,8 @@ def verify_extraction_node(
     writer: StreamWriter,
 ) -> dict:
     """
-    Compare extracted features with the image. Return yes/feedback.
-    After 3 retries, auto-proceed to node_4.
+    Compare extracted features with the image. Return ExtractedFeedback with passed=True/False.
+    After 3 retries, auto-proceed (return passed=True).
     """
     writer("🔍 Processing: Verifying extracted data against image...")
 
@@ -25,16 +25,18 @@ def verify_extraction_node(
 
     if retry_count >= MAX_EXTRACTION_RETRIES:
         writer("⏭️ Max retries reached. Proceeding to essay writing...")
-        return {"extraction_verified": True, "verification_feedback": ""}
+        return {
+            "extraction_retry_count": retry_count,
+            "extraction_feedback": ExtractedFeedback(passed=True, overview_feedback="", paragraph_1_feedback="", paragraph_2_feedback=""),
+        }
 
-    vision_model = get_vision_model()
+    vision_model = get_vision_model().with_structured_output(ExtractedFeedback)
     image_path = state["image_path"]
     image_url = load_image_as_base64(image_path)
-    extracted = state.get("extracted_features") or {}
+    extracted = state.get("extracted_features")
     raw_question = state.get("raw_question", "")
 
-    import json
-    extracted_str = json.dumps(extracted, indent=2)
+    extracted_str = extracted.model_dump_json(indent=2) if extracted and hasattr(extracted, "model_dump_json") else str(extracted or {})
 
     system_prompt = """You are a strict IELTS examiner verifying data extraction accuracy.
 Compare the extracted features with the image. Check:
@@ -43,11 +45,7 @@ Compare the extracted features with the image. Check:
 3. Overview accurately summarizes the main trends
 4. Paragraph descriptions match the visual
 
-Respond in EXACTLY this format (nothing else):
-VERDICT: yes
-OR
-VERDICT: no
-FEEDBACK: [Detailed list of specific errors to fix - which numbers are wrong, what's missing, etc.]"""
+Provide structured feedback: set passed=True only if everything is correct. If any errors exist, set passed=False and fill in the relevant feedback fields (overview_feedback, paragraph_1_feedback, paragraph_2_feedback) with specific, actionable corrections - which numbers are wrong, what's missing, etc."""
 
     messages = [
         SystemMessage(content=system_prompt),
@@ -60,24 +58,23 @@ FEEDBACK: [Detailed list of specific errors to fix - which numbers are wrong, wh
     ]
 
     writer("🔍 Comparing data with image...")
-    print("extracted_str", extracted_str)
-    response = vision_model.invoke(messages)
-    content = (response.content or "").strip().upper()
+    feedback = vision_model.invoke(messages)
 
-    passed = "VERDICT: YES" in content
-    feedback = ""
+    if not isinstance(feedback, ExtractedFeedback):
+        feedback = ExtractedFeedback(
+            passed=False,
+            overview_feedback=str(feedback),
+            paragraph_1_feedback="",
+            paragraph_2_feedback="",
+        )
 
-    if not passed:
-        if "FEEDBACK:" in content:
-            feedback = content.split("FEEDBACK:")[-1].strip()
+    if not feedback.passed:
         retry_count += 1
         writer(f"❌ Verification failed. Feedback recorded. (Attempt {retry_count}/{MAX_EXTRACTION_RETRIES})")
     else:
         writer("✅ Data verified successfully.")
 
     return {
-        "extraction_verified": passed,
         "extraction_retry_count": retry_count,
-        "verification_feedback": feedback,
-        "extraction_feedback": feedback if not passed else "",
+        "extraction_feedback": feedback,
     }

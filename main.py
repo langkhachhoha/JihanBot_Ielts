@@ -29,13 +29,10 @@ def run_jihan_bot(image_path: str, band_score: str = "7"):
         "band_score": band_score,
         "raw_question": "",
         "extracted_features": None,
-        "extraction_feedback": "",
-        "extraction_verified": False,
+        "extraction_feedback": None,
         "extraction_retry_count": 0,
-        "verification_feedback": "",
         "essay": "",
-        "grading_feedback": "",
-        "grading_passed": False,
+        "grading_feedback": None,
         "grading_retry_count": 0,
     }
 
@@ -61,17 +58,15 @@ def run_jihan_bot(image_path: str, band_score: str = "7"):
     # Get final state
     final_state = graph.get_state(config)
     state_values = final_state.values if hasattr(final_state, "values") else {}
-    from rich import print as rprint
-    rprint(state_values)
 
     print("\n" + "=" * 60)
     print("📝 FINAL ESSAY")
     print("=" * 60)
     essay = state_values.get("essay", "")
-    # if essay:
-    #     print(essay)
-    # else:
-    #     print("No essay generated.")
+    if essay:
+        print(essay)
+    else:
+        print("No essay generated.")
     print("=" * 60)
 
     return state_values
@@ -91,10 +86,5 @@ if __name__ == "__main__":
     if not Path(image_path).exists():
         print(f"Error: Image not found: {image_path}")
         sys.exit(1)
-    import os
-    # Load .env from Jihan folder
-    _env_path = Path(__file__).parent / ".env"
-    load_dotenv(_env_path)
-    print(os.getenv("OPENAI_API_KEY"))
 
     run_jihan_bot(image_path, band_score)

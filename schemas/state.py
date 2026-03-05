@@ -1,6 +1,6 @@
 """State schema for JihanBot IELTS Writing Task 1 pipeline."""
 
-from typing import List, Optional, TypedDict, Literal
+from typing import Optional, TypedDict
 from pydantic import BaseModel, Field
 
 
@@ -88,15 +88,15 @@ class JihanState(TypedDict):
     raw_question: str
 
     # Node 2: Extract features
-    extracted_features: ExtractedFeatures
-    extraction_feedback: ExtractedFeedback # Feedback from node_3 when verification fails
+    extracted_features: Optional[ExtractedFeatures]
+    extraction_feedback: Optional[ExtractedFeedback]  # Feedback from node_3 when verification fails
 
     # Node 3: Verify extraction
     extraction_retry_count: int
 
     # Node 4: Write essay
     essay: str
-    grading_feedback: GradingFeedback # Feedback from node_5 when grading fails
+    grading_feedback: Optional[GradingFeedback]  # Feedback from node_5 when grading fails
 
     # Node 5: Grade essay
     grading_retry_count: int
