@@ -14,7 +14,7 @@ JihanBot nhận ảnh chụp đề IELTS Task 1 (biểu đồ, bảng số liệ
 4. Viết bài theo band đã chọn
 5. Chấm điểm theo tiêu chí IELTS, revise tối đa 3 lần nếu chưa đạt
 
-Pipeline dùng LangGraph với conditional routing và state để xử lý các vòng lặp verify/grading một cách rõ ràng.
+Pipeline dùng LangGraph với conditional routing và state để xử lý các vòng lặp verify/grading một cách rõ ràng
 
 ## Cấu trúc project
 
