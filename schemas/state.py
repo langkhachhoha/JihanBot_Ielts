@@ -100,3 +100,7 @@ class JihanState(TypedDict):
 
     # Node 5: Grade essay
     grading_retry_count: int
+
+    # HITL tracking
+    human_review_features: Optional[bool]  # Track if features were reviewed by human
+    human_review_grading: Optional[bool]  # Track if grading was reviewed by human

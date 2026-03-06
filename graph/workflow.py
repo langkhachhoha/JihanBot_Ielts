@@ -10,6 +10,8 @@ from agents import (
     verify_extraction_node,
     write_essay_node,
     grade_essay_node,
+    hitl_review_features_node,
+    hitl_review_grading_node,
 )
 
 
@@ -42,18 +44,25 @@ def create_jihan_graph():
     # Add nodes
     builder.add_node("extract_question", extract_question_node)
     builder.add_node("extract_features", extract_features_node)
+    builder.add_node("hitl_review_features", hitl_review_features_node)
     builder.add_node("verify_extraction", verify_extraction_node)
     builder.add_node("write_essay", write_essay_node)
     builder.add_node("grade_essay", grade_essay_node)
+    builder.add_node("hitl_review_grading", hitl_review_grading_node)
 
     # Add edges
     builder.add_edge(START, "extract_question")
     builder.add_edge("extract_question", "extract_features")
-    builder.add_edge("extract_features", "verify_extraction")
+    builder.add_edge("extract_features", "hitl_review_features")
+    builder.add_edge("hitl_review_features", "verify_extraction")
     builder.add_conditional_edges("verify_extraction", _route_after_verification)
     builder.add_edge("write_essay", "grade_essay")
-    builder.add_conditional_edges("grade_essay", _route_after_grading)
+    builder.add_edge("grade_essay", "hitl_review_grading")
+    builder.add_conditional_edges("hitl_review_grading", _route_after_grading)
 
-    # Compile with checkpointing for state persistence
+    # Compile with checkpointing for state persistence and HITL interrupts
     memory = InMemorySaver()
-    return builder.compile(checkpointer=memory)
+    return builder.compile(
+        checkpointer=memory,
+        interrupt_before=["hitl_review_features", "hitl_review_grading"]
+    )
