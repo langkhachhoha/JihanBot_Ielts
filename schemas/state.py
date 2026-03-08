@@ -1,6 +1,6 @@
 """State schema for JihanBot IELTS Writing Task 1 pipeline."""
 
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, Literal
 from pydantic import BaseModel, Field
 
 
@@ -80,7 +80,9 @@ class GradingFeedback(BaseModel):
 class ExtractedLanguageItem(BaseModel):
     """A single language unit extracted from the final essay (vocabulary, collocation, structure, pattern)."""
 
-    category: str = Field(description="Must match an existing taxonomy category.")
+    category: Literal["trend_description", "comparison", "data_reference", 
+    "quantity_expression", "sentence_pattern","reporting_function"] = Field(
+        description="The top-level taxonomy category assigned to this item.")
     subcategory: str = Field(
         description="Existing subcategory or a controlled extension belonging to the category."
     )
@@ -88,7 +90,7 @@ class ExtractedLanguageItem(BaseModel):
         description="The linguistic pattern or structure, e.g. 'Sth increased significantly over the period'."
     )
     example: str = Field(
-        description="Example sentence or phrase taken directly from the essay."
+        description="A supporting example taken directly from the final essay to show how the structure appeared in context."
     )
 
 
