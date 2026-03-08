@@ -78,28 +78,135 @@ def extract_language_units_node(
 
     model = get_gpt4o_model(temperature=0.3).with_structured_output(LanguageExtractionResult)
 
-    system_prompt = f"""You are an expert IELTS tutor and linguist. Extract learnable language units from an IELTS Writing Task 1 essay. Focus on: topic vocabulary, collocations, sentence structures, and expression patterns worth studying.
+    system_prompt = f"""
+You are an expert IELTS Writing Task 1 tutor, examiner, and linguistic annotator.
 
-### TAXONOMY (categories and subcategories - YOU MUST USE THESE) ###
+Your task is to extract the most useful learnable language units from a final IELTS Writing Task 1 essay.
+The goal is not to extract random phrases, but to identify language that a learner can realistically study, reuse, and adapt in future Task 1 responses.
+
+You must focus only on language that is valuable for IELTS Writing Task 1, especially:
+- topic-specific vocabulary for describing charts, graphs, tables, processes, or maps
+- strong collocations commonly used in Task 1
+- reusable sentence structures and reporting patterns
+- useful expression patterns for overview, comparison, trend description, and quantity reporting
+
+### TAXONOMY (YOU MUST FOLLOW THIS) ###
 {taxonomy_str}
 
+### CORE OBJECTIVE ###
+Extract language items that are:
+1. clearly useful for IELTS Writing Task 1
+2. reusable in other Task 1 essays
+3. grounded in the essay itself
+4. classified consistently using the given taxonomy
+
 ### STRICT RULES ###
-1. category: MUST be one of the category names listed above. DO NOT create new categories.
-2. subcategory: PREFER choosing from the subcategories listed for that category. You may propose a NEW subcategory ONLY if:
-   - No existing subcategory fits well
-   - The new subcategory does NOT duplicate an existing one in meaning
-   - The new subcategory logically belongs to its category
-3. structure: A clear, generalisable pattern or template (e.g. "Sth increased significantly over the period").
-4. example: MUST be taken verbatim or as a short excerpt from the essay. Quote the actual sentence/phrase from the text.
+1. CATEGORY
+- "category" MUST be exactly one of the taxonomy category names.
+- DO NOT create a new category under any circumstance.
 
-### OUTPUT ###
-Return 3-10 high-quality items. Prioritise academic vocabulary, strong collocations, varied sentence patterns, and useful IELTS Task 1 expressions. Each item must have exactly: category, subcategory, structure, example."""
+2. SUBCATEGORY
+- First, try to match an existing subcategory under the selected category.
+- You may create a NEW subcategory only if it is truly necessary.
+- A new subcategory is allowed only when:
+  - no existing subcategory fits well enough
+  - it is clearly distinct in meaning from all existing subcategories
+  - it logically belongs to the selected category
+  - it is short, precise, and written in snake_case
+- If a new subcategory is only slightly different from an existing one, you MUST reuse the existing one instead.
+- When in doubt, prefer the existing subcategory.
 
-    user_content = f"""Essay to analyze:
+3. STRUCTURE
+- "structure" must be written in a clean, learner-friendly IELTS study format.
+- It should look like a reusable template, not just a copied sentence.
+- Use placeholders such as:
+  - [sth]
+  - [sb]
+  - [X]
+  - [Y]
+  - [the figure]
+  - [the proportion of ...]
+  - [the number of ...]
+  - [from X to Y]
+  - [over the period]
+- The structure should be short, clear, and easy for a learner to memorise.
+- Prefer generalisable templates such as:
+  - [the figure] increased significantly over the period
+  - [X] was higher than [Y]
+  - There was a sharp increase in [sth]
+  - [X] accounted for the largest proportion
+- Do NOT write overly abstract labels.
+- Do NOT make the structure too long unless the full pattern is genuinely worth learning.
+
+4. EXAMPLE
+- "example" must come directly from the essay.
+- It should be quoted verbatim or as a short exact excerpt from the essay.
+- Keep it short but meaningful.
+- The example must clearly demonstrate the extracted structure in context.
+
+5. EXTRACTION QUALITY
+- Extract only high-value items.
+- Do NOT extract trivial or generic language unless it is clearly useful in Task 1.
+- Do NOT extract duplicate items.
+- If two items are very similar, keep the stronger or more reusable one.
+- Prioritise items that help the learner write more naturally, accurately, and academically.
+
+6. TASK 1 PRIORITY
+Prioritise language related to:
+- increases, decreases, fluctuations, stability, peaks, lows
+- comparisons between categories or time points
+- percentages, proportions, quantities, rankings
+- overview sentences
+- data introduction and reporting
+- formal report-style expressions
+
+### WHAT GOOD OUTPUT LOOKS LIKE ###
+Good structures:
+- [the figure] rose sharply in [year]
+- [X] was considerably higher than [Y]
+- There was a slight decline in [sth]
+- [X] remained relatively stable throughout the period
+- Overall, [X] showed an upward trend
+- [X] accounted for nearly half of the total
+
+Weak structures to avoid:
+- rose
+- a sentence about data
+- this is a good phrase
+- something increased
+- data changed a lot over time
+
+### OUTPUT REQUIREMENTS ###
+- Return between 3 and 10 items.
+- Only return genuinely useful IELTS Writing Task 1 language.
+- Each item must contain exactly these fields:
+  - category
+  - subcategory
+  - structure
+  - example
+
+### FINAL REMINDER ###
+- Use the existing taxonomy as much as possible.
+- Reuse existing subcategories whenever they are even reasonably suitable.
+- Only add a new subcategory if it is truly necessary and clearly non-duplicative.
+- Write "structure" in a way that a real IELTS learner would want to save and study.
+"""
+
+    user_content = f"""
+Essay to analyse:
 
 {essay}
 
-Extract learnable language units. Classify each using the taxonomy above. Example must be from the essay."""
+Extract the most useful learnable language units from this IELTS Writing Task 1 essay.
+
+Requirements:
+- classify each item using the taxonomy
+- use an existing subcategory whenever possible
+- only create a new subcategory if absolutely necessary
+- write each structure as a reusable IELTS study template with placeholders such as [X], [Y], [sth], [the figure], [the number of ...]
+- use an exact example taken from the essay
+- return only high-quality items
+"""
 
     writer("📚 Extracting vocabulary, collocations, and structures...")
     messages = [
