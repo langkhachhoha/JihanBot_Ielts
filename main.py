@@ -105,37 +105,68 @@ def _prompt_user_for_grading(current_feedback):
     return current_feedback
 
 
-def _append_items_to_database(database_path: str, items: list) -> None:
-    """Append approved language items to the taxonomy JSON file."""
-    if not database_path or not items:
+def _get_items_path(taxonomy_path: str) -> Path:
+    """Derive items file path from taxonomy path: same directory, language_items.json."""
+    return Path(taxonomy_path).parent / "language_items.json"
+
+
+def _append_items_to_database(taxonomy_path: str, items: list) -> None:
+    """Append approved language items to language_items.json (separate from taxonomy).
+    Items are organized/sorted by category, then subcategory for readability."""
+    if not taxonomy_path or not items:
         return
-    path = Path(database_path)
-    if not path.exists():
-        return
+    items_path = _get_items_path(taxonomy_path)
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        existing = data.get("items", [])
-        data["items"] = existing + items
-        with open(path, "w", encoding="utf-8") as f:
+        existing = []
+        if items_path.exists():
+            with open(items_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                existing = data.get("items", [])
+        merged = existing + items
+        merged.sort(key=lambda x: (x.get("category", ""), x.get("subcategory", "")))
+        data = {"items": merged}
+        with open(items_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except (json.JSONDecodeError, OSError):
         pass
 
 
-def _prompt_user_for_extractions(proposed: list, database_path: str) -> list:
-    """Prompt user to approve or reject each proposed language item. Write approved to database."""
+def _truncate(s: str, max_len: int = 60) -> str:
+    """Truncate string for display, add ... if longer."""
+    if len(s) <= max_len:
+        return s
+    return s[: max_len - 3] + "..."
+
+
+def _prompt_edit_item(item: dict) -> dict:
+    """Prompt user to edit a language item's fields."""
+    cat = item.get("category", "")
+    sub = item.get("subcategory", "")
+    struct = item.get("structure", "")
+    ex = item.get("example", "")
+    print("    Enter new values (or press Enter to keep current):")
+    new_cat = input(f"    category [{cat}]: ").strip() or cat
+    new_sub = input(f"    subcategory [{sub}]: ").strip() or sub
+    new_struct = input(f"    structure [{_truncate(struct)}]: ").strip() or struct
+    new_ex = input(f"    example [{_truncate(ex)}]: ").strip() or ex
+    return {"category": new_cat, "subcategory": new_sub, "structure": new_struct, "example": new_ex}
+
+
+def _prompt_user_for_extractions(proposed: list, taxonomy_path: str) -> list:
+    """Prompt user to approve, reject, or edit each proposed language item. Write approved to language_items.json."""
     if not proposed:
         return []
     print("\n" + "=" * 60)
     print("👤 HUMAN REVIEW - PROPOSED LANGUAGE UNITS")
     print("=" * 60)
-    print("For each item, approve (y) or reject (n) for adding to the database.")
+    print("For each item: approve (y), reject (n), or edit (edit).")
     print("=" * 60)
 
     approved = []
     for i, item in enumerate(proposed, 1):
-        if isinstance(item, dict):
+        if not isinstance(item, dict):
+            item = {"category": "", "subcategory": "", "structure": str(item), "example": ""}
+        while True:
             cat = item.get("category", "")
             sub = item.get("subcategory", "")
             struct = item.get("structure", "")
@@ -143,17 +174,22 @@ def _prompt_user_for_extractions(proposed: list, database_path: str) -> list:
             print(f"\n[{i}] category: {cat} | subcategory: {sub}")
             print(f"    structure: {struct}")
             print(f"    example: {ex}")
-        else:
-            print(f"\n[{i}] {item}")
-        choice = input("    Add to database? (y/n) [n]: ").strip().lower()
-        if choice == "y":
-            approved.append(item)
+            choice = input("    Add to database? (y/n/edit) [n]: ").strip().lower()
+            if choice == "y":
+                approved.append(item)
+                break
+            elif choice == "edit":
+                item = _prompt_edit_item(item)
+                print("    Item updated. Review again:")
+            else:
+                break
 
-    if approved and database_path:
-        _append_items_to_database(database_path, approved)
-        print(f"\n✅ {len(approved)} item(s) written to database.")
+    if approved and taxonomy_path:
+        _append_items_to_database(taxonomy_path, approved)
+        items_path = _get_items_path(taxonomy_path)
+        print(f"\n✅ {len(approved)} item(s) written to {items_path}.")
     elif approved:
-        print(f"\n✅ {len(approved)} item(s) approved (no database path set).")
+        print(f"\n✅ {len(approved)} item(s) approved (no taxonomy path set).")
     else:
         print("\n✅ No items approved.")
 
@@ -167,7 +203,8 @@ def run_jihan_bot(image_path: str, band_score: str = "7", database_path: str | N
     Args:
         image_path: Path to IELTS Task 1 question image (local file)
         band_score: Target IELTS band (e.g., "6", "7", "8")
-        database_path: Path to language taxonomy/database JSON (default: data/language_taxonomy.json)
+        database_path: Path to taxonomy JSON (default: data/language_taxonomy.json).
+                      Approved items are stored in language_items.json in the same directory.
     """
     graph = create_jihan_graph()
 

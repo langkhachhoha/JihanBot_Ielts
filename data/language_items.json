@@ -1,0 +1,46 @@
+{
+  "items": [
+    {
+      "category": "comparison",
+      "subcategory": "difference_from",
+      "structure": "with a difference of [X] percentage points",
+      "example": "with a difference of 5.1 percentage points"
+    },
+    {
+      "category": "comparison",
+      "subcategory": "higher_than",
+      "structure": "[X] surpassed [Y] in [sth]",
+      "example": "Women surpassed men in several age groups"
+    },
+    {
+      "category": "data_reference",
+      "subcategory": "chart_reference",
+      "structure": "The bar chart illustrates [sth]",
+      "example": "The bar chart illustrates the proportion of Australian men and women across various age groups who participated in regular physical activity in 2010."
+    },
+    {
+      "category": "quantity_expression",
+      "subcategory": "percentage",
+      "structure": "[X] were more physically active ([percentage]%) than [Y] ([percentage]%)",
+      "example": "men were more physically active (52.8%) than women (47.7%)"
+    },
+    {
+      "category": "reporting_function",
+      "subcategory": "overview_opening",
+      "structure": "Overall, the data reveals that [sth]",
+      "example": "Overall, the data reveals that physical activity levels were highest among middle-aged Australians."
+    },
+    {
+      "category": "trend_description",
+      "subcategory": "decline",
+      "structure": "Participation rates experienced a decline for [X] after [Y]",
+      "example": "Participation rates experienced a decline for both genders after the age of 54"
+    },
+    {
+      "category": "trend_description",
+      "subcategory": "increase",
+      "structure": "Physical activity rates increased for [X] in [Y]",
+      "example": "Physical activity rates increased for both genders in the 45-54 age group"
+    }
+  ]
+}

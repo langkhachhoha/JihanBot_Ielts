@@ -76,55 +76,5 @@
         "extreme_reporting"
       ]
     }
-  },
-  "items": [
-    {
-      "category": "trend_description",
-      "subcategory": "increase",
-      "structure": "There was a notable and consistent increase in sth over the period.",
-      "example": "Overall, there was a notable and consistent increase in the number of both men and women participating in further education across the three periods."
-    },
-    {
-      "category": "data_reference",
-      "subcategory": "time_reference",
-      "structure": "In [year], sth happened.",
-      "example": "In 1970/71, men formed the largest group."
-    },
-    {
-      "category": "quantity_expression",
-      "subcategory": "majority_minority",
-      "structure": "Sth became the majority/minority in a category by a certain time.",
-      "example": "who became the majority in this category by 1990/91."
-    },
-    {
-      "category": "sentence_pattern",
-      "subcategory": "overview_sentence",
-      "structure": "Overall, there was a notable trend in sth over the periods.",
-      "example": "Overall, there was a notable and consistent increase in the number of both men and women participating in further education across the three periods."
-    },
-    {
-      "category": "reporting_function",
-      "subcategory": "overview_summary",
-      "structure": "The most significant trend observed was sth.",
-      "example": "The most significant trend observed was the substantial rise in part-time study, particularly among women."
-    },
-    {
-      "category": "trend_description",
-      "subcategory": "fluctuation",
-      "structure": "Sth decreased slightly to a certain amount.",
-      "example": "while the number of part-time male students decreased slightly to about 900 thousand."
-    },
-    {
-      "category": "comparison",
-      "subcategory": "different_from",
-      "structure": "Conversely, the scenario for one group showed significant differences.",
-      "example": "Conversely, the scenario for women showed significant differences."
-    },
-    {
-      "category": "trend_description",
-      "subcategory": "sharp_change",
-      "structure": "Sth surged to nearly a certain amount.",
-      "example": "By 1990/91, part-time study among women surged to nearly 1,100 thousand."
-    }
-  ]
+  }
 }
