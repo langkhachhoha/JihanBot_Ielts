@@ -12,6 +12,8 @@ from agents import (
     grade_essay_node,
     hitl_review_features_node,
     hitl_review_grading_node,
+    extract_language_units_node,
+    hitl_review_extractions_node,
 )
 
 
@@ -31,9 +33,9 @@ def _route_after_verification(state: JihanState) -> str:
 
 
 def _route_after_grading(state: JihanState):
-    """Route from node_5: go to END if passed or max retries, else back to node_4."""
+    """Route from node_5: go to extract_language_units if passed, else back to write_essay."""
     if _get_passed(state, "grading_feedback"):
-        return END
+        return "extract_language_units"
     return "write_essay"
 
 
@@ -49,6 +51,8 @@ def create_jihan_graph():
     builder.add_node("write_essay", write_essay_node)
     builder.add_node("grade_essay", grade_essay_node)
     builder.add_node("hitl_review_grading", hitl_review_grading_node)
+    builder.add_node("extract_language_units", extract_language_units_node)
+    builder.add_node("hitl_review_extractions", hitl_review_extractions_node)
 
     # Add edges
     builder.add_edge(START, "extract_question")
@@ -59,10 +63,12 @@ def create_jihan_graph():
     builder.add_edge("write_essay", "grade_essay")
     builder.add_edge("grade_essay", "hitl_review_grading")
     builder.add_conditional_edges("hitl_review_grading", _route_after_grading)
+    builder.add_edge("extract_language_units", "hitl_review_extractions")
+    builder.add_edge("hitl_review_extractions", END)
 
     # Compile with checkpointing for state persistence and HITL interrupts
     memory = InMemorySaver()
     return builder.compile(
         checkpointer=memory,
-        interrupt_before=["hitl_review_features", "hitl_review_grading"]
+        interrupt_before=["hitl_review_features", "hitl_review_grading", "hitl_review_extractions"]
     )

@@ -38,3 +38,12 @@ def get_text_model(temperature: float = 0.7) -> ChatOpenAI:
         api_key=os.getenv("OPENAI_API_KEY"),
         temperature=temperature,
     )
+
+
+def get_gpt4o_model(temperature: float = 0.3) -> ChatOpenAI:
+    """GPT-4o for language extraction SubAgent (structured output)."""
+    return ChatOpenAI(
+        model="gpt-4o",
+        api_key=os.getenv("OPENAI_API_KEY"),
+        temperature=temperature,
+    )

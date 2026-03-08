@@ -5,6 +5,8 @@ from .verify_extraction_agent import verify_extraction_node
 from .write_essay_agent import write_essay_node
 from .grade_essay_agent import grade_essay_node
 from .hitl_review_grading_node import hitl_review_grading_node
+from .extract_language_units_agent import extract_language_units_node
+from .hitl_review_extractions_node import hitl_review_extractions_node
 
 __all__ = [
     "extract_question_node",
@@ -14,4 +16,6 @@ __all__ = [
     "write_essay_node",
     "grade_essay_node",
     "hitl_review_grading_node",
+    "extract_language_units_node",
+    "hitl_review_extractions_node",
 ]

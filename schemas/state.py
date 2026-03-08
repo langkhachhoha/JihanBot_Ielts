@@ -77,6 +77,30 @@ class GradingFeedback(BaseModel):
     )
 
 
+class ExtractedLanguageItem(BaseModel):
+    """A single language unit extracted from the final essay (vocabulary, collocation, structure, pattern)."""
+
+    category: str = Field(description="Must match an existing taxonomy category.")
+    subcategory: str = Field(
+        description="Existing subcategory or a controlled extension belonging to the category."
+    )
+    structure: str = Field(
+        description="The linguistic pattern or structure, e.g. 'Sth increased significantly over the period'."
+    )
+    example: str = Field(
+        description="Example sentence or phrase taken directly from the essay."
+    )
+
+
+class LanguageExtractionResult(BaseModel):
+    """Result of LLM extraction: list of language items to propose for human review."""
+
+    items: list[ExtractedLanguageItem] = Field(
+        default_factory=list,
+        description="Extracted language units for human review.",
+    )
+
+
 class JihanState(TypedDict):
     """State shared across all JihanBot nodes."""
 
@@ -104,3 +128,10 @@ class JihanState(TypedDict):
     # HITL tracking
     human_review_features: Optional[bool]  # Track if features were reviewed by human
     human_review_grading: Optional[bool]  # Track if grading was reviewed by human
+
+    # Language extraction SubAgent (runs when grading passed)
+    database_path: Optional[str]  # Path to taxonomy/database JSON file
+    final_generated_essay: Optional[str]  # Copy of final essay for extraction
+    proposed_language_items: Optional[list]  # Items proposed by LLM for human review
+    approved_language_items: Optional[list]  # Items approved by human for database
+    human_review_extractions: Optional[bool]  # Track if extraction review occurred

@@ -1,0 +1,130 @@
+{
+  "categories": {
+    "trend_description": {
+      "description": "Language used to describe change over time in charts or graphs.",
+      "allow_subcategory_extension": true,
+      "subcategories": [
+        "increase",
+        "decrease",
+        "fluctuation",
+        "stability",
+        "plateau",
+        "peak",
+        "bottom",
+        "surge",
+        "drop",
+        "gradual_change",
+        "sharp_change"
+      ]
+    },
+    "comparison": {
+      "description": "Language used to compare values, categories, or groups.",
+      "allow_subcategory_extension": true,
+      "subcategories": [
+        "higher_than",
+        "lower_than",
+        "equal_to",
+        "similar_to",
+        "different_from",
+        "ranking",
+        "superlative"
+      ]
+    },
+    "data_reference": {
+      "description": "Language used to refer to charts, figures, categories, and time points.",
+      "allow_subcategory_extension": true,
+      "subcategories": [
+        "chart_reference",
+        "figure_reference",
+        "category_reference",
+        "time_reference"
+      ]
+    },
+    "quantity_expression": {
+      "description": "Language used to describe amounts, percentages, proportions, and numbers.",
+      "allow_subcategory_extension": true,
+      "subcategories": [
+        "percentage",
+        "fraction",
+        "proportion",
+        "majority_minority",
+        "approximation",
+        "quantity_amount"
+      ]
+    },
+    "sentence_pattern": {
+      "description": "Reusable grammatical patterns for Task 1 reporting.",
+      "allow_subcategory_extension": true,
+      "subcategories": [
+        "there_be",
+        "comparative",
+        "passive",
+        "temporal",
+        "overview_sentence",
+        "trend_sentence"
+      ]
+    },
+    "reporting_function": {
+      "description": "Communicative functions specific to IELTS Writing Task 1.",
+      "allow_subcategory_extension": true,
+      "subcategories": [
+        "overview_opening",
+        "overview_summary",
+        "data_introduction",
+        "trend_reporting",
+        "comparison_reporting",
+        "extreme_reporting"
+      ]
+    }
+  },
+  "items": [
+    {
+      "category": "trend_description",
+      "subcategory": "increase",
+      "structure": "There was a notable and consistent increase in sth over the period.",
+      "example": "Overall, there was a notable and consistent increase in the number of both men and women participating in further education across the three periods."
+    },
+    {
+      "category": "data_reference",
+      "subcategory": "time_reference",
+      "structure": "In [year], sth happened.",
+      "example": "In 1970/71, men formed the largest group."
+    },
+    {
+      "category": "quantity_expression",
+      "subcategory": "majority_minority",
+      "structure": "Sth became the majority/minority in a category by a certain time.",
+      "example": "who became the majority in this category by 1990/91."
+    },
+    {
+      "category": "sentence_pattern",
+      "subcategory": "overview_sentence",
+      "structure": "Overall, there was a notable trend in sth over the periods.",
+      "example": "Overall, there was a notable and consistent increase in the number of both men and women participating in further education across the three periods."
+    },
+    {
+      "category": "reporting_function",
+      "subcategory": "overview_summary",
+      "structure": "The most significant trend observed was sth.",
+      "example": "The most significant trend observed was the substantial rise in part-time study, particularly among women."
+    },
+    {
+      "category": "trend_description",
+      "subcategory": "fluctuation",
+      "structure": "Sth decreased slightly to a certain amount.",
+      "example": "while the number of part-time male students decreased slightly to about 900 thousand."
+    },
+    {
+      "category": "comparison",
+      "subcategory": "different_from",
+      "structure": "Conversely, the scenario for one group showed significant differences.",
+      "example": "Conversely, the scenario for women showed significant differences."
+    },
+    {
+      "category": "trend_description",
+      "subcategory": "sharp_change",
+      "structure": "Sth surged to nearly a certain amount.",
+      "example": "By 1990/91, part-time study among women surged to nearly 1,100 thousand."
+    }
+  ]
+}

@@ -105,15 +105,74 @@ def _prompt_user_for_grading(current_feedback):
     return current_feedback
 
 
-def run_jihan_bot(image_path: str, band_score: str = "7"):
+def _append_items_to_database(database_path: str, items: list) -> None:
+    """Append approved language items to the taxonomy JSON file."""
+    if not database_path or not items:
+        return
+    path = Path(database_path)
+    if not path.exists():
+        return
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        existing = data.get("items", [])
+        data["items"] = existing + items
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except (json.JSONDecodeError, OSError):
+        pass
+
+
+def _prompt_user_for_extractions(proposed: list, database_path: str) -> list:
+    """Prompt user to approve or reject each proposed language item. Write approved to database."""
+    if not proposed:
+        return []
+    print("\n" + "=" * 60)
+    print("👤 HUMAN REVIEW - PROPOSED LANGUAGE UNITS")
+    print("=" * 60)
+    print("For each item, approve (y) or reject (n) for adding to the database.")
+    print("=" * 60)
+
+    approved = []
+    for i, item in enumerate(proposed, 1):
+        if isinstance(item, dict):
+            cat = item.get("category", "")
+            sub = item.get("subcategory", "")
+            struct = item.get("structure", "")
+            ex = item.get("example", "")
+            print(f"\n[{i}] category: {cat} | subcategory: {sub}")
+            print(f"    structure: {struct}")
+            print(f"    example: {ex}")
+        else:
+            print(f"\n[{i}] {item}")
+        choice = input("    Add to database? (y/n) [n]: ").strip().lower()
+        if choice == "y":
+            approved.append(item)
+
+    if approved and database_path:
+        _append_items_to_database(database_path, approved)
+        print(f"\n✅ {len(approved)} item(s) written to database.")
+    elif approved:
+        print(f"\n✅ {len(approved)} item(s) approved (no database path set).")
+    else:
+        print("\n✅ No items approved.")
+
+    return approved
+
+
+def run_jihan_bot(image_path: str, band_score: str = "7", database_path: str | None = None):
     """
     Run JihanBot pipeline with HITL support and custom streaming.
 
     Args:
         image_path: Path to IELTS Task 1 question image (local file)
         band_score: Target IELTS band (e.g., "6", "7", "8")
+        database_path: Path to language taxonomy/database JSON (default: data/language_taxonomy.json)
     """
     graph = create_jihan_graph()
+
+    default_db_path = str(Path(__file__).parent / "data" / "language_taxonomy.json")
+    db_path = database_path or default_db_path
 
     initial_state: JihanState = {
         "image_path": image_path,
@@ -127,6 +186,11 @@ def run_jihan_bot(image_path: str, band_score: str = "7"):
         "grading_retry_count": 0,
         "human_review_features": None,
         "human_review_grading": None,
+        "database_path": db_path,
+        "final_generated_essay": None,
+        "proposed_language_items": None,
+        "approved_language_items": None,
+        "human_review_extractions": None,
     }
 
     config = {"configurable": {"thread_id": "jihan-1"}}
@@ -205,6 +269,17 @@ def run_jihan_bot(image_path: str, band_score: str = "7"):
                     as_node="hitl_review_grading"
                 )
 
+        elif "hitl_review_extractions" in state.next:
+            # Human review for proposed language units
+            proposed = state_values.get("proposed_language_items") or []
+            db_path = state_values.get("database_path") or ""
+            approved = _prompt_user_for_extractions(proposed, db_path)
+            graph.update_state(
+                config,
+                {"approved_language_items": approved},
+                as_node="hitl_review_extractions"
+            )
+
     # Get final state
     final_state = graph.get_state(config)
     state_values = final_state.values if hasattr(final_state, "values") else {}
@@ -226,15 +301,16 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print("Usage: python main.py <path_to_ielts_task1_image> [band_score]")
+        print("Usage: python main.py <path_to_ielts_task1_image> [band_score] [database_path]")
         print("Example: python main.py ./sample_ielts_task1.png 7")
         sys.exit(1)
 
     image_path = sys.argv[1]
     band_score = sys.argv[2] if len(sys.argv) > 2 else "7"
+    database_path = sys.argv[3] if len(sys.argv) > 3 else None
 
     if not Path(image_path).exists():
         print(f"Error: Image not found: {image_path}")
         sys.exit(1)
 
-    run_jihan_bot(image_path, band_score)
+    run_jihan_bot(image_path, band_score, database_path)
