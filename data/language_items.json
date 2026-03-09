@@ -13,10 +13,58 @@
       "example": "Women surpassed men in several age groups"
     },
     {
+      "category": "comparison",
+      "subcategory": "higher_than",
+      "structure": "[X] spend significantly more time than [Y] on [activity]",
+      "example": "men spend significantly more time than women on TV, video, and radio"
+    },
+    {
+      "category": "comparison",
+      "subcategory": "higher_than",
+      "structure": "[X] spend more time than [Y] on [sth]",
+      "example": "Regarding leisure activities, men spend more time than women in all three categories."
+    },
+    {
+      "category": "comparison",
+      "subcategory": "lower_than",
+      "structure": "[X] spend slightly less time [activity] than [Y]",
+      "example": "Men also spend slightly less time reading, with 18 minutes compared to 19 minutes for women"
+    },
+    {
+      "category": "comparison",
+      "subcategory": "lower_than",
+      "structure": "[X] spend just [amount] minutes, while [Y] spend [amount] minutes",
+      "example": "For sports activities, men spend 15 minutes daily, while women spend just 11 minutes."
+    },
+    {
+      "category": "comparison",
+      "subcategory": "superlative",
+      "structure": "[X] spend substantially more time than [Y] in [sth]",
+      "example": "When it comes to household activities, women spend substantially more time than men in all listed tasks."
+    },
+    {
+      "category": "data_reference",
+      "subcategory": "category_reference",
+      "structure": "Regarding [category], [X]",
+      "example": "Regarding leisure activities, men spend significantly more time than women."
+    },
+    {
+      "category": "data_reference",
+      "subcategory": "category_reference",
+      "structure": "In [category], [X] allocate [amount] minutes, compared to [amount] for [Y]",
+      "example": "In shopping, women allocate 35 minutes, compared to 25 minutes for men."
+    },
+    {
       "category": "data_reference",
       "subcategory": "chart_reference",
       "structure": "The bar chart illustrates [sth]",
       "example": "The bar chart illustrates the proportion of Australian men and women across various age groups who participated in regular physical activity in 2010."
+    },
+    {
+      "category": "quantity_expression",
+      "subcategory": "approximation",
+      "structure": "approximately [X] minutes compared to [Y] minutes for [group]",
+      "example": "approximately 35 minutes compared to 25 minutes for men"
     },
     {
       "category": "quantity_expression",
@@ -25,10 +73,46 @@
       "example": "men were more physically active (52.8%) than women (47.7%)"
     },
     {
+      "category": "quantity_expression",
+      "subcategory": "quantity_amount",
+      "structure": "[X] spend [amount] minutes per day on [sth]",
+      "example": "Women spend 75 minutes per day on cooking and washing."
+    },
+    {
       "category": "reporting_function",
       "subcategory": "overview_opening",
       "structure": "Overall, the data reveals that [sth]",
       "example": "Overall, the data reveals that physical activity levels were highest among middle-aged Australians."
+    },
+    {
+      "category": "reporting_function",
+      "subcategory": "overview_opening",
+      "structure": "The provided data compares [X] in [year], highlighting [Y]",
+      "example": "The provided data compares the time spent by UK males and females on household and leisure activities in 2008, highlighting marked differences in their daily time allocation."
+    },
+    {
+      "category": "reporting_function",
+      "subcategory": "overview_opening",
+      "structure": "Overall, the data presents a clear contrast in [sth]",
+      "example": "Overall, the data presents a clear contrast in how UK males and females allocate their time between leisure and household activities."
+    },
+    {
+      "category": "reporting_function",
+      "subcategory": "overview_summary",
+      "structure": "In conclusion, the data reveals that [X] showed distinct patterns in [Y]",
+      "example": "In conclusion, the data reveals that UK men and women in 2008 showed distinct patterns in time spent on activities"
+    },
+    {
+      "category": "sentence_pattern",
+      "subcategory": "overview_sentence",
+      "structure": "[X] generally spend more time on [sth], particularly [specific activities]",
+      "example": "Women generally spend more time on household chores, particularly cooking and washing."
+    },
+    {
+      "category": "sentence_pattern",
+      "subcategory": "trend_sentence",
+      "structure": "[X] illustrates distinct patterns in [Y]",
+      "example": "These trends illustrate distinct patterns in their daily routines."
     },
     {
       "category": "trend_description",

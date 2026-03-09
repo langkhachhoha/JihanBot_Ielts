@@ -1,51 +1,60 @@
 # JihanBot
 
-Pipeline sinh bài IELTS Writing Task 1 từ hình ảnh đề bài, sử dụng LangGraph để điều khiển luồng xử lý có điều kiện và retry.
+Pipeline sinh bài IELTS Writing Task 1 từ hình ảnh đề bài, dùng LangGraph với HITL (Human-in-the-Loop) và kho lưu cấu trúc ngôn ngữ.
 
-![Workflow](workflow-v2.png)
+## Pipeline
 
-## Tổng quan
+![Pipeline JihanBot](pipeline-diagram.png)
 
-JihanBot nhận ảnh chụp đề IELTS Task 1 (biểu đồ, bảng số liệu, quy trình) và band điểm mục tiêu, sau đó tự động:
-
-1. Trích xuất nội dung đề bài từ ảnh
-2. Phân tích và lấy cấu trúc dữ liệu (overview, các đoạn chi tiết)
-3. Đối chiếu với ảnh gốc, retry tối đa 3 lần nếu sai
-4. Viết bài theo band đã chọn
-5. Chấm điểm theo tiêu chí IELTS, revise tối đa 3 lần nếu chưa đạt
-
-Pipeline dùng LangGraph với conditional routing và state để xử lý các vòng lặp verify/grading một cách rõ ràng
+---
 
 ## Cấu trúc project
 
 ```
 Jihan/
-├── main.py           # Entry point
-├── config.py         # Model config (vision + text)
+├── pipeline-diagram.png # Sơ đồ luồng pipeline
+├── main.py              # CLI entry point
+├── config.py            # Model config (vision + text)
 ├── graph/
-│   └── workflow.py   # Định nghĩa graph và routing
-├── agents/           # Các node xử lý
+│   └── workflow.py      # Định nghĩa graph và routing
+├── agents/               # Các node xử lý
 │   ├── extract_question_agent.py
 │   ├── extract_features_agent.py
 │   ├── verify_extraction_agent.py
 │   ├── write_essay_agent.py
-│   └── grade_essay_agent.py
+│   ├── grade_essay_agent.py
+│   ├── extract_language_units_agent.py
+│   ├── hitl_review_features_node.py
+│   ├── hitl_review_grading_node.py
+│   └── hitl_review_extractions_node.py
 ├── schemas/
-│   └── state.py     # JihanState
-└── utils/
-    └── image.py     # Load ảnh base64
+│   └── state.py
+├── data/
+│   ├── language_taxonomy.json
+│   └── language_items.json
+├── utils/
+│   └── image.py
+└── webapp/               # Giao diện web demo
+    ├── app.py           # FastAPI (SSE, HITL API)
+    ├── requirements.txt
+    ├── screenshot.png
+    ├── static/
+    │   ├── index.html
+    │   ├── styles.css
+    │   └── app.js
+    └── uploads/
 ```
 
-## Cài đặt
+---
+
+## Chạy CLI
 
 ```bash
 cd Jihan
 pip install -r requirements.txt
 ```
 
-Copy `.env.example` thành `.env`, điền `TOGETHER_API_KEY`. Mặc định dùng Together cho cả vision và text; nếu muốn dùng OpenAI cho phần viết bài thì set `USE_TOGETHER_FOR_TEXT=false` và khai báo `OPENAI_API_KEY`.
-
-## Chạy
+Copy `.env.example` → `.env`, điền `TOGETHER_API_KEY` và `OPENAI_API_KEY`.
 
 ```bash
 python main.py <đường_dẫn_ảnh> [band_score]
@@ -58,13 +67,59 @@ python main.py ./image.png 7
 python main.py ./task1_chart.png 7.5
 ```
 
-Band mặc định là 7 nếu không truyền.
+---
+
+## Web Demo
+
+![JihanBot Web Demo](webapp/screenshot.png)
+
+Giao diện web: upload ảnh, xem thinking stream, nhận essay, review HITL, lưu cấu trúc vào gallery.
+
+### Giao diện
+
+| Khu vực | Mô tả |
+|---------|-------|
+| **Upload** | Drag & drop ảnh, chọn band 6.0–8.5, nút Generate Essay |
+| **Thinking** | Log streaming trạng thái: idle → thinking... → paused → done |
+| **Final Essay** | Bài essay sau khi pipeline xong |
+| **Proposed Language Units** | Nút Review → Edit, Approve, Reject từng item → Save Approved |
+| **Language Gallery** | Nút Open → Grid cards (category, structure, example), filter, Close |
+
+### Thiết kế
+
+- Dark mode (#0f1419, #1e2a3a), accent xanh (#3b82f6)
+- Font: Fraunces, Source Sans 3, JetBrains Mono
+
+### Chạy
+
+```bash
+cd Jihan/webapp
+pip install -r requirements.txt
+uvicorn app:app --reload --host 0.0.0.0
+```
+
+Mở http://localhost:8000
+
+### API
+
+| Method | Path | Mô tả |
+|--------|------|-------|
+| GET | / | Trang chủ |
+| GET | /api/gallery | Items + taxonomy |
+| POST | /api/run | Upload ảnh, trả thread_id |
+| GET | /api/stream/{thread_id} | SSE thinking |
+| POST | /api/hitl/features | Submit features |
+| POST | /api/hitl/grading | Submit grading |
+| POST | /api/hitl/extractions | Submit approved items |
+
+---
 
 ## Models
 
 | Vai trò | Model | Provider |
 |---------|-------|----------|
-| Vision (OCR, đọc biểu đồ) | Qwen/Qwen3-VL-8B-Instruct | Together |
-| Text (viết, chấm bài) | Llama-4-Maverick-17B-128E-Instruct | Together |
+| Vision | Qwen/Qwen3-VL-8B-Instruct | Together |
+| Text (viết, chấm) | Llama-4-Maverick-17B-128E-Instruct | Together |
+| Language extraction | gpt-4o | OpenAI |
 
-Có thể đổi text model qua biến `TOGETHER_TEXT_MODEL` trong `.env`.
+Đổi text model qua `TOGETHER_TEXT_MODEL`. Dùng OpenAI cho text: `USE_TOGETHER_FOR_TEXT=false`.

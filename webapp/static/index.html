@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JihanBot - IELTS Writing Task 1 Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1 class="logo">JihanBot</h1>
+      <p class="tagline">IELTS Writing Task 1 Generator</p>
+    </header>
+
+    <main class="main">
+      <section class="upload-section card">
+        <h2>Upload IELTS Task 1 Image</h2>
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept="image/*" hidden />
+          <div class="upload-content">
+            <span class="upload-icon">📷</span>
+            <p>Drag & drop or click to select image</p>
+            <p class="upload-hint">PNG, JPG, WebP supported</p>
+          </div>
+        </div>
+        <div class="run-row">
+          <label>Target Band:
+            <select id="bandScore">
+              <option value="6">6.0</option>
+              <option value="6.5">6.5</option>
+              <option value="7" selected>7.0</option>
+              <option value="7.5">7.5</option>
+              <option value="8">8.0</option>
+              <option value="8.5">8.5</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-primary" id="runBtn" disabled>Generate Essay</button>
+        </div>
+      </section>
+
+      <section class="thinking-section card" id="thinkingSection">
+        <h2>Thinking <span class="badge" id="thinkingBadge">idle</span></h2>
+        <div class="thinking-log" id="thinkingLog"></div>
+      </section>
+
+      <section class="essay-section card" id="essaySection">
+        <h2>Final Essay</h2>
+        <div class="essay-content" id="essayContent">
+          <p class="placeholder">Essay will appear here after generation.</p>
+        </div>
+      </section>
+
+      <div class="action-buttons-row" id="proposedButtonRow" style="display: none;">
+        <button type="button" class="btn btn-secondary" id="openProposedBtn">📝 Review Proposed Language Units</button>
+      </div>
+
+      <section class="extractions-section card extractions-collapsed" id="extractionsSection">
+        <div class="extractions-header">
+          <h2>Proposed Language Units</h2>
+          <p class="section-hint">Review, edit, approve or reject items to add to your gallery.</p>
+          <button type="button" class="btn btn-sm btn-secondary" id="closeProposedBtn">Close</button>
+        </div>
+        <div class="extractions-list" id="extractionsList"></div>
+        <div class="extractions-actions" id="extractionsActions">
+          <button type="button" class="btn btn-primary" id="saveExtractionsBtn">Save Approved</button>
+        </div>
+      </section>
+
+      <div class="action-buttons-row">
+        <button type="button" class="btn btn-secondary" id="openGalleryBtn">📚 Open Language Gallery</button>
+      </div>
+
+      <section class="gallery-section card gallery-collapsed" id="gallerySection">
+        <div class="gallery-header">
+          <h2>Language Gallery</h2>
+          <p class="section-hint">Saved structures from previous essays.</p>
+          <button type="button" class="btn btn-sm btn-secondary" id="closeGalleryBtn">Close</button>
+        </div>
+        <div class="gallery-filters" id="galleryFilters"></div>
+        <div class="gallery-grid" id="galleryGrid"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- HITL Modals -->
+  <div class="modal-overlay" id="featuresModal">
+    <div class="modal">
+      <h3>Review Extracted Features</h3>
+      <form id="featuresForm">
+        <div class="form-group">
+          <label>Overview</label>
+          <textarea id="feOverview" rows="4"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Paragraph 1</label>
+          <textarea id="feParagraph1" rows="4"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Paragraph 2</label>
+          <textarea id="feParagraph2" rows="4"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Grouping Logic</label>
+          <textarea id="feGrouping" rows="2"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Accept & Continue</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="gradingModal">
+    <div class="modal modal-wide">
+      <h3>Review Grading Feedback</h3>
+      <div class="grading-essay" id="gradingEssay"></div>
+      <div class="grading-feedback" id="gradingFeedback"></div>
+      <form id="gradingForm">
+        <input type="hidden" id="gfAction" name="action" value="accept" />
+        <div class="form-group" id="gfEditFields">
+          <label>Task Achievement</label>
+          <textarea id="gfTA" rows="2"></textarea>
+          <label>Coherence & Cohesion</label>
+          <textarea id="gfCC" rows="2"></textarea>
+          <label>Lexical Resource</label>
+          <textarea id="gfLR" rows="2"></textarea>
+          <label>Grammatical Range</label>
+          <textarea id="gfGR" rows="2"></textarea>
+          <label>Suggestions</label>
+          <textarea id="gfSuggestion" rows="2"></textarea>
+          <label>Overall Score</label>
+          <input type="number" id="gfScore" step="0.5" min="0" max="9" />
+          <label>Passed</label>
+          <select id="gfPassed">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="gfSkipBtn">Accept Essay (Skip Revision)</button>
+          <button type="button" class="btn btn-secondary" id="gfEditToggle">Edit Feedback</button>
+          <button type="submit" class="btn btn-primary">Accept & Continue</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit extraction item modal -->
+  <div class="modal-overlay" id="editExtractionModal">
+    <div class="modal">
+      <h3>Edit Language Unit</h3>
+      <form id="editExtractionForm">
+        <input type="hidden" id="editExtractionIdx" />
+        <div class="form-group">
+          <label>Category</label>
+          <input type="text" id="editCategory" />
+        </div>
+        <div class="form-group">
+          <label>Subcategory</label>
+          <input type="text" id="editSubcategory" />
+        </div>
+        <div class="form-group">
+          <label>Structure</label>
+          <textarea id="editStructure" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Example</label>
+          <textarea id="editExample" rows="2"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelEditExtraction">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

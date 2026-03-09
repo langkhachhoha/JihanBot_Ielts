@@ -24,28 +24,28 @@ def _prompt_user_for_features(current_features):
     print("  1. Accept as-is (press Enter)")
     print("  2. Edit features (type 'edit')")
     print("=" * 60)
-    
+
     choice = input("\nYour choice: ").strip().lower()
-    
+
     if choice == "edit":
         print("\nEnter updated features (or press Enter to keep current):")
         print("-" * 60)
-        
+
         overview = input(f"Overview [{current_features.overview[:50]}...]: ").strip()
         paragraph_1 = input(f"Paragraph 1 [{current_features.paragraph_1[:50]}...]: ").strip()
         paragraph_2 = input(f"Paragraph 2 [{current_features.paragraph_2[:50]}...]: ").strip()
         grouping_logic = input(f"Grouping Logic [{current_features.grouping_logic[:50]}...]: ").strip()
-        
+
         updated_features = ExtractedFeatures(
             overview=overview if overview else current_features.overview,
             paragraph_1=paragraph_1 if paragraph_1 else current_features.paragraph_1,
             paragraph_2=paragraph_2 if paragraph_2 else current_features.paragraph_2,
             grouping_logic=grouping_logic if grouping_logic else current_features.grouping_logic,
         )
-        
+
         print("\n✅ Features updated!")
         return updated_features
-    
+
     print("\n✅ Features accepted as-is!")
     return current_features
 
@@ -60,9 +60,9 @@ def _prompt_user_for_grading(current_feedback):
     print("  2. Accept essay without revision (type 'accept')")
     print("  3. Edit feedback (type 'edit')")
     print("=" * 60)
-    
+
     choice = input("\nYour choice: ").strip().lower()
-    
+
     if choice == "accept":
         print("\n✅ Essay accepted! Skipping revision.")
         return GradingFeedback(
@@ -74,20 +74,20 @@ def _prompt_user_for_grading(current_feedback):
             suggestion="",
             overall_score=current_feedback.overall_score if hasattr(current_feedback, "overall_score") else 0.0,
         )
-    
+
     elif choice == "edit":
         print("\nEnter updated feedback (or press Enter to keep current):")
         print("-" * 60)
-        
+
         passed_input = input(f"Passed [{'Yes' if current_feedback.passed else 'No'}] (yes/no): ").strip().lower()
         passed = passed_input == "yes" if passed_input else current_feedback.passed
-        
+
         ta_feedback = input(f"Task Achievement feedback: ").strip()
         cc_feedback = input(f"Coherence & Cohesion feedback: ").strip()
         lr_feedback = input(f"Lexical Resource feedback: ").strip()
         gr_feedback = input(f"Grammatical Range feedback: ").strip()
         suggestion = input(f"Suggestions: ").strip()
-        
+
         updated_feedback = GradingFeedback(
             passed=passed,
             task_achievement_feedback=ta_feedback if ta_feedback else current_feedback.task_achievement_feedback,
@@ -97,10 +97,10 @@ def _prompt_user_for_grading(current_feedback):
             suggestion=suggestion if suggestion else current_feedback.suggestion,
             overall_score=current_feedback.overall_score,
         )
-        
+
         print("\n✅ Feedback updated!")
         return updated_feedback
-    
+
     print("\n✅ Feedback accepted as-is!")
     return current_feedback
 
@@ -241,14 +241,14 @@ def run_jihan_bot(image_path: str, band_score: str = "7", database_path: str | N
 
     # Track if this is the first run
     first_run = True
-    
+
     # Main loop: handle streaming and interrupts
     while True:
         # Stream until interrupt or completion
         # On first run, pass initial_state; on subsequent runs, pass None to resume
         stream_input = initial_state if first_run else None
         first_run = False
-        
+
         for chunk in graph.stream(
             stream_input,
             config=config,
@@ -272,33 +272,33 @@ def run_jihan_bot(image_path: str, band_score: str = "7", database_path: str | N
 
         # Check current state
         state = graph.get_state(config)
-        
+
         # If no more nodes to execute, workflow is complete
         if not state.next:
             break
-        
+
         # Handle interrupts
         state_values = state.values if hasattr(state, "values") else {}
-        
+
         if "hitl_review_features" in state.next:
             # Human review for extracted features
             current_features = state_values.get("extracted_features")
             if current_features:
                 updated_features = _prompt_user_for_features(current_features)
-                
+
                 # Update state with reviewed features
                 graph.update_state(
                     config,
                     {"extracted_features": updated_features},
                     as_node="hitl_review_features"
                 )
-        
+
         elif "hitl_review_grading" in state.next:
             # Human review for grading feedback
             current_feedback = state_values.get("grading_feedback")
             if current_feedback:
                 updated_feedback = _prompt_user_for_grading(current_feedback)
-                
+
                 # Update state with reviewed feedback
                 graph.update_state(
                     config,
