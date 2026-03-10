@@ -1,27 +1,23 @@
 # JihanBot
 
-Pipeline tạo bài IELTS Writing Task 1 từ ảnh đề bài, dùng LangGraph với Human-in-the-Loop (HITL) và kho cấu trúc ngôn ngữ.
+Generates IELTS Writing Task 1 essays from chart images via LangGraph, with human-in-the-loop review at three checkpoints and a language structure gallery for reusable phrasing.
 
----
+## Pipeline
 
-## Luồng xử lý (Pipeline)
+![Pipeline diagram](pipeline-diagram.png)
 
-![Pipeline JihanBot](pipeline-diagram.png)
+Flow: extract question → extract features → **HITL features** → verify extraction → write essay → grade essay → **HITL grading** → extract language units → **HITL extractions** → done. Each HITL step pauses for review and edits before continuing.
 
-Luồng: extract question → extract features → **HITL features** → verify extraction → write essay → grade essay → **HITL grading** → extract language units → **HITL extractions** → kết thúc. Ba điểm HITL dừng để người dùng review/sửa trước khi tiếp tục.
-
----
-
-## Cấu trúc dự án
+## Project structure
 
 ```
 Jihan/
-├── pipeline-diagram.png       # Sơ đồ pipeline
-├── main.py                    # CLI
-├── config.py                  # Cấu hình model (vision, text)
-├── requirements.txt          # Dependencies
+├── pipeline-diagram.png
+├── main.py                    # CLI entry
+├── config.py                  # Model config (vision, text)
+├── requirements.txt
 ├── graph/
-│   └── workflow.py            # Định nghĩa graph và routing
+│   └── workflow.py
 ├── agents/
 │   ├── extract_question_agent.py
 │   ├── extract_features_agent.py
@@ -33,16 +29,15 @@ Jihan/
 │   ├── hitl_review_grading_node.py
 │   └── hitl_review_extractions_node.py
 ├── schemas/
-│   └── state.py               # JihanState, ExtractedFeatures, GradingFeedback, ...
+│   └── state.py               # JihanState, ExtractedFeatures, GradingFeedback
 ├── data/
-│   ├── language_taxonomy.json # Phân loại category/subcategory cho language units
-│   └── language_items.json    # Kho các cấu trúc đã được user approve
+│   ├── language_taxonomy.json  # Category/subcategory for language units
+│   └── language_items.json     # Approved language structures
 ├── utils/
 │   └── image.py
-└── webapp/                    # Demo giao diện web
-    ├── app.py                 # FastAPI (SSE, HITL API)
+└── webapp/                     # FastAPI demo
+    ├── app.py
     ├── requirements.txt
-    ├── screenshot.png
     ├── static/
     │   ├── index.html
     │   ├── styles.css
@@ -50,50 +45,46 @@ Jihan/
     └── uploads/
 ```
 
----
-
-## Chạy CLI
+## CLI
 
 ```bash
 cd Jihan
 pip install -r requirements.txt
 ```
 
-Copy `.env.example` → `.env` và cấu hình:
+Copy `.env.example` to `.env` and set:
 
-- `TOGETHER_API_KEY` – Vision + Text (Together)
-- `OPENAI_API_KEY` – Language extraction dùng gpt-4o
+| Variable | Purpose |
+|----------|---------|
+| `TOGETHER_API_KEY` | Vision + text models (Together) |
+| `OPENAI_API_KEY` | Language extraction (GPT-4o) |
 
 ```bash
-python main.py <đường_dẫn_ảnh> [band_score] [database_path]
+python main.py <image_path> [band_score] [database_path]
 ```
 
-Ví dụ:
+Example:
 
 ```bash
 python main.py ./image.png 7
 python main.py ./task1_chart.png 7.5
 ```
 
----
+## Web demo
 
-## Web Demo
+![Web demo screenshot](webapp/screenshot.png)
 
-![JihanBot Web Demo](webapp/screenshot.png)
+Upload a chart image, stream thinking logs, receive the essay, and perform HITL at three review points. Approved language units are saved to the gallery.
 
-Giao diện web: upload ảnh, xem thinking stream, nhận essay, tham gia HITL tại 3 điểm review, lưu cấu trúc ngôn ngữ vào gallery.
+| Section | Description |
+|---------|-------------|
+| **Upload** | Drag & drop image, choose band 6.0–8.5, click Generate Essay |
+| **Thinking** | Real-time status log |
+| **Final Essay** | Output after pipeline completes |
+| **Proposed Language Units** | Review → Edit/Approve/Reject → Save Approved |
+| **Language Gallery** | Open → grid by category, filter, Close |
 
-| Khu vực | Mô tả |
-|--------|-------|
-| **Upload** | Drag & drop ảnh, chọn band 6.0–8.5, nhấn Generate Essay |
-| **Thinking** | Log streaming trạng thái theo thời gian thực |
-| **Final Essay** | Bài essay sau khi pipeline hoàn tất |
-| **Proposed Language Units** | Nút Review → Edit / Approve / Reject từng item → Save Approved |
-| **Language Gallery** | Nút Open → Grid cards theo category, filter, Close |
-
-**Thiết kế:** Dark mode (#0f1419, #1e2a3a), accent xanh (#3b82f6). Font: Fraunces, Source Sans 3, JetBrains Mono.
-
-**Chạy:**
+Design: dark theme (#0f1419, #1e2a3a), blue accent (#3b82f6). Fonts: Fraunces, Source Sans 3, JetBrains Mono.
 
 ```bash
 cd Jihan/webapp
@@ -101,28 +92,26 @@ pip install -r requirements.txt
 uvicorn app:app --reload --host 0.0.0.0
 ```
 
-Mở http://localhost:8000
+Then open http://localhost:8000.
 
-**API:**
+### API endpoints
 
-| Method | Path | Mô tả |
-|--------|------|-------|
-| GET | / | Trang chủ |
-| GET | /api/gallery | Lấy items + taxonomy |
-| POST | /api/run | Upload ảnh, trả `thread_id` |
-| GET | /api/stream/{thread_id} | SSE stream thinking |
-| POST | /api/hitl/features | Gửi features đã review |
-| POST | /api/hitl/grading | Gửi grading đã review |
-| POST | /api/hitl/extractions | Gửi approved items, ghi vào `language_items.json` |
-
----
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | / | Home |
+| GET | /api/gallery | Taxonomy + items |
+| POST | /api/run | Upload image, returns `thread_id` |
+| GET | /api/stream/{thread_id} | SSE stream |
+| POST | /api/hitl/features | Submit reviewed features |
+| POST | /api/hitl/grading | Submit reviewed grading |
+| POST | /api/hitl/extractions | Submit approved items → `language_items.json` |
 
 ## Models
 
-| Vai trò | Model | Provider |
-|---------|-------|----------|
+| Role | Model | Provider |
+|------|-------|----------|
 | Vision | Qwen/Qwen3-VL-8B-Instruct | Together |
-| Text (viết, chấm) | Llama-4-Maverick-17B-128E-Instruct | Together |
+| Text (write, grade) | meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8 | Together |
 | Language extraction | gpt-4o | OpenAI |
 
-Đổi model text qua biến `TOGETHER_TEXT_MODEL`. Dùng OpenAI cho text: `USE_TOGETHER_FOR_TEXT=false`.
+Override text model via `TOGETHER_TEXT_MODEL`. Use OpenAI for text with `USE_TOGETHER_FOR_TEXT=false`.
