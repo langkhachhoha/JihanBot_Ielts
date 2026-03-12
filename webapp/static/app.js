@@ -3,6 +3,65 @@
  */
 
 const API = '/api';
+let lastFocusedBeforeModal = null;
+
+/** Get focusable elements within a container */
+function getFocusable(container) {
+  const sel = 'button:not([disabled]), [href], input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  return [...container.querySelectorAll(sel)].filter(el => {
+    if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') return false;
+    const style = getComputedStyle(el);
+    return style.visibility !== 'hidden' && style.display !== 'none';
+  });
+}
+
+/** Focus trap: keep Tab/Shift+Tab within modal */
+function setupFocusTrap(modalOverlay) {
+  const focusables = getFocusable(modalOverlay);
+  if (focusables.length === 0) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  first.focus();
+  modalOverlay.addEventListener('keydown', function handleTrap(e) {
+    if (e.key !== 'Tab') return;
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
+}
+
+/** Show modal: trap focus, Esc to close */
+function openModal(modalOverlay, onEscape) {
+  lastFocusedBeforeModal = document.activeElement;
+  modalOverlay.classList.add('visible');
+  modalOverlay.setAttribute('aria-hidden', 'false');
+  setupFocusTrap(modalOverlay);
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onEscape();
+      modalOverlay.removeEventListener('keydown', escHandler);
+    }
+  };
+  modalOverlay.addEventListener('keydown', escHandler);
+}
+
+/** Close modal: restore focus */
+function closeModal(modalOverlay) {
+  modalOverlay.classList.remove('visible');
+  modalOverlay.setAttribute('aria-hidden', 'true');
+  if (lastFocusedBeforeModal && typeof lastFocusedBeforeModal.focus === 'function') {
+    lastFocusedBeforeModal.focus();
+  }
+}
 let selectedFile = null;
 let currentThreadId = null;
 let eventSource = null;
@@ -42,6 +101,12 @@ const gfEditToggle = document.getElementById('gfEditToggle');
 
 // Upload
 uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    fileInput.click();
+  }
+});
 uploadZone.addEventListener('dragover', (e) => {
   e.preventDefault();
   uploadZone.classList.add('dragover');
@@ -75,6 +140,7 @@ runBtn.addEventListener('click', async () => {
   thinkingBadge.textContent = 'starting...';
   thinkingBadge.className = 'badge active';
   thinkingSection.classList.add('thinking');
+  essaySection.classList.add('loading');
   essayContent.innerHTML = '<p class="placeholder">Generating...</p>';
   extractionsList.innerHTML = '';
   proposedItems.length = 0;
@@ -97,6 +163,9 @@ runBtn.addEventListener('click', async () => {
   } catch (err) {
     appendThinking(`Error: ${err.message}`);
     thinkingBadge.textContent = 'error';
+    thinkingBadge.className = 'badge error';
+    essaySection.classList.remove('loading');
+    essayContent.innerHTML = '<p class="placeholder">Essay will appear here after generation.</p>';
     runBtn.disabled = false;
   }
 });
@@ -168,6 +237,7 @@ function connectSSE() {
     thinkingBadge.textContent = 'done';
     thinkingBadge.className = 'badge done';
     thinkingSection.classList.remove('thinking');
+    essaySection.classList.remove('loading');
     runBtn.disabled = false;
 
     const state = data.state || {};
@@ -190,6 +260,10 @@ function connectSSE() {
     if (eventSource?.readyState === EventSource.CLOSED) return;
     appendThinking('Connection interrupted. You may need to resubmit.');
     thinkingBadge.textContent = 'error';
+    thinkingBadge.className = 'badge error';
+    essaySection.classList.remove('loading');
+    essayContent.innerHTML = '<p class="placeholder">Essay will appear here after generation.</p>';
+    runBtn.disabled = false;
   };
 }
 
@@ -206,7 +280,7 @@ function showFeaturesModal(state) {
   document.getElementById('feParagraph1').value = ef.paragraph_1 || '';
   document.getElementById('feParagraph2').value = ef.paragraph_2 || '';
   document.getElementById('feGrouping').value = ef.grouping_logic || '';
-  featuresModal.classList.add('visible');
+  openModal(featuresModal, () => closeModal(featuresModal));
 }
 
 featuresForm.addEventListener('submit', async (e) => {
@@ -225,7 +299,7 @@ featuresForm.addEventListener('submit', async (e) => {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
-    featuresModal.classList.remove('visible');
+    closeModal(featuresModal);
     thinkingBadge.textContent = 'thinking...';
     thinkingBadge.className = 'badge active';
     thinkingSection.classList.add('thinking');
@@ -250,7 +324,7 @@ function showGradingModal(state) {
   document.getElementById('gfPassed').value = gf.passed ? 'true' : 'false';
   document.getElementById('gfAction').value = 'accept';
   gfEditFields.style.display = 'none';
-  gradingModal.classList.add('visible');
+  openModal(gradingModal, () => closeModal(gradingModal));
 }
 
 function formatGradingFeedback(gf) {
@@ -273,7 +347,7 @@ gfSkipBtn.addEventListener('click', async () => {
     const res = await fetch(`${API}/hitl/grading`, { method: 'POST', body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
-    gradingModal.classList.remove('visible');
+    closeModal(gradingModal);
     thinkingBadge.textContent = 'thinking...';
     thinkingBadge.className = 'badge active';
     thinkingSection.classList.add('thinking');
@@ -304,7 +378,7 @@ gradingForm.addEventListener('submit', async (e) => {
     const res = await fetch(`${API}/hitl/grading`, { method: 'POST', body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
-    gradingModal.classList.remove('visible');
+    closeModal(gradingModal);
     thinkingBadge.textContent = 'thinking...';
     thinkingBadge.className = 'badge active';
     thinkingSection.classList.add('thinking');
@@ -366,7 +440,7 @@ function openEditModal(idx) {
   document.getElementById('editSubcategory').value = item.subcategory || '';
   document.getElementById('editStructure').value = item.structure || '';
   document.getElementById('editExample').value = item.example || '';
-  editExtractionModal.classList.add('visible');
+  openModal(editExtractionModal, () => closeModal(editExtractionModal));
 }
 
 editExtractionForm.addEventListener('submit', (e) => {
@@ -379,12 +453,12 @@ editExtractionForm.addEventListener('submit', (e) => {
     structure: document.getElementById('editStructure').value.trim(),
     example: document.getElementById('editExample').value.trim(),
   };
-  editExtractionModal.classList.remove('visible');
+  closeModal(editExtractionModal);
   renderExtractions();
 });
 
 document.getElementById('cancelEditExtraction').addEventListener('click', () => {
-  editExtractionModal.classList.remove('visible');
+  closeModal(editExtractionModal);
 });
 
 saveExtractionsBtn.addEventListener('click', async () => {

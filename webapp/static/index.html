@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="JihanBot: AI-powered IELTS Writing Task 1 essay generator. Upload a chart image, get a band-scored essay with human-in-the-loop review." />
   <title>JihanBot - IELTS Writing Task 1 Demo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,6 +13,7 @@
 <body>
   <div class="app">
     <header class="header">
+      <div class="header-accent" aria-hidden="true"></div>
       <h1 class="logo">JihanBot</h1>
       <p class="tagline">IELTS Writing Task 1 Generator</p>
     </header>
@@ -19,8 +21,8 @@
     <main class="main">
       <section class="upload-section card">
         <h2>Upload IELTS Task 1 Image</h2>
-        <div class="upload-zone" id="uploadZone">
-          <input type="file" id="fileInput" accept="image/*" hidden />
+        <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Upload IELTS Task 1 chart image. Drag and drop or click to select. PNG, JPG, WebP supported.">
+          <input type="file" id="fileInput" accept="image/*" hidden aria-hidden="true" />
           <div class="upload-content">
             <span class="upload-icon">📷</span>
             <p>Drag & drop or click to select image</p>
@@ -28,8 +30,8 @@
           </div>
         </div>
         <div class="run-row">
-          <label>Target Band:
-            <select id="bandScore">
+          <label for="bandScore">Target Band:
+            <select id="bandScore" aria-describedby="bandScoreHint">
               <option value="6">6.0</option>
               <option value="6.5">6.5</option>
               <option value="7" selected>7.0</option>
@@ -38,7 +40,8 @@
               <option value="8.5">8.5</option>
             </select>
           </label>
-          <button type="button" class="btn btn-primary" id="runBtn" disabled>Generate Essay</button>
+          <span id="bandScoreHint" class="sr-only">Target IELTS band score for generated essay (6.0 to 8.5)</span>
+          <button type="button" class="btn btn-primary" id="runBtn" disabled aria-label="Generate essay from uploaded image">Generate Essay</button>
         </div>
       </section>
 
@@ -49,20 +52,27 @@
 
       <section class="essay-section card" id="essaySection">
         <h2>Final Essay</h2>
+        <div class="essay-skeleton" id="essaySkeleton" aria-hidden="true">
+          <span class="skeleton-line short"></span>
+          <span class="skeleton-line medium"></span>
+          <span class="skeleton-line long"></span>
+          <span class="skeleton-line short"></span>
+          <span class="skeleton-line medium"></span>
+        </div>
         <div class="essay-content" id="essayContent">
           <p class="placeholder">Essay will appear here after generation.</p>
         </div>
       </section>
 
       <div class="action-buttons-row" id="proposedButtonRow" style="display: none;">
-        <button type="button" class="btn btn-secondary" id="openProposedBtn">📝 Review Proposed Language Units</button>
+        <button type="button" class="btn btn-secondary" id="openProposedBtn" aria-label="Review proposed language units">📝 Review Proposed Language Units</button>
       </div>
 
       <section class="extractions-section card extractions-collapsed" id="extractionsSection">
         <div class="extractions-header">
           <h2>Proposed Language Units</h2>
           <p class="section-hint">Review, edit, approve or reject items to add to your gallery.</p>
-          <button type="button" class="btn btn-sm btn-secondary" id="closeProposedBtn">Close</button>
+          <button type="button" class="btn btn-sm btn-secondary" id="closeProposedBtn" aria-label="Close proposed language units panel">Close</button>
         </div>
         <div class="extractions-list" id="extractionsList"></div>
         <div class="extractions-actions" id="extractionsActions">
@@ -71,14 +81,14 @@
       </section>
 
       <div class="action-buttons-row">
-        <button type="button" class="btn btn-secondary" id="openGalleryBtn">📚 Open Language Gallery</button>
+        <button type="button" class="btn btn-secondary" id="openGalleryBtn" aria-label="Open language gallery">📚 Open Language Gallery</button>
       </div>
 
       <section class="gallery-section card gallery-collapsed" id="gallerySection">
         <div class="gallery-header">
           <h2>Language Gallery</h2>
           <p class="section-hint">Saved structures from previous essays.</p>
-          <button type="button" class="btn btn-sm btn-secondary" id="closeGalleryBtn">Close</button>
+          <button type="button" class="btn btn-sm btn-secondary" id="closeGalleryBtn" aria-label="Close language gallery panel">Close</button>
         </div>
         <div class="gallery-filters" id="galleryFilters"></div>
         <div class="gallery-grid" id="galleryGrid"></div>
@@ -87,25 +97,30 @@
   </div>
 
   <!-- HITL Modals -->
-  <div class="modal-overlay" id="featuresModal">
+  <div class="modal-overlay" id="featuresModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="featuresModalTitle" aria-describedby="featuresModalDesc">
     <div class="modal">
-      <h3>Review Extracted Features</h3>
+      <h3 id="featuresModalTitle">Review Extracted Features</h3>
+      <p id="featuresModalDesc" class="sr-only">Edit the extracted overview, paragraph content, and grouping logic before continuing the pipeline.</p>
       <form id="featuresForm">
         <div class="form-group">
-          <label>Overview</label>
-          <textarea id="feOverview" rows="4"></textarea>
+          <label for="feOverview">Overview</label>
+          <textarea id="feOverview" rows="4" aria-describedby="feOverviewDesc"></textarea>
+          <span id="feOverviewDesc" class="sr-only">Brief overview of the chart data</span>
         </div>
         <div class="form-group">
-          <label>Paragraph 1</label>
-          <textarea id="feParagraph1" rows="4"></textarea>
+          <label for="feParagraph1">Paragraph 1</label>
+          <textarea id="feParagraph1" rows="4" aria-describedby="feParagraph1Desc"></textarea>
+          <span id="feParagraph1Desc" class="sr-only">First body paragraph content</span>
         </div>
         <div class="form-group">
-          <label>Paragraph 2</label>
-          <textarea id="feParagraph2" rows="4"></textarea>
+          <label for="feParagraph2">Paragraph 2</label>
+          <textarea id="feParagraph2" rows="4" aria-describedby="feParagraph2Desc"></textarea>
+          <span id="feParagraph2Desc" class="sr-only">Second body paragraph content</span>
         </div>
         <div class="form-group">
-          <label>Grouping Logic</label>
-          <textarea id="feGrouping" rows="2"></textarea>
+          <label for="feGrouping">Grouping Logic</label>
+          <textarea id="feGrouping" rows="2" aria-describedby="feGroupingDesc"></textarea>
+          <span id="feGroupingDesc" class="sr-only">How data is grouped or compared</span>
         </div>
         <div class="modal-actions">
           <button type="submit" class="btn btn-primary">Accept & Continue</button>
@@ -114,27 +129,29 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="gradingModal">
+  <div class="modal-overlay" id="gradingModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="gradingModalTitle" aria-describedby="gradingModalDesc">
     <div class="modal modal-wide">
-      <h3>Review Grading Feedback</h3>
+      <h3 id="gradingModalTitle">Review Grading Feedback</h3>
+      <p id="gradingModalDesc" class="sr-only">Review the essay grading and feedback. Accept as-is or edit before continuing.</p>
       <div class="grading-essay" id="gradingEssay"></div>
       <div class="grading-feedback" id="gradingFeedback"></div>
       <form id="gradingForm">
         <input type="hidden" id="gfAction" name="action" value="accept" />
         <div class="form-group" id="gfEditFields">
-          <label>Task Achievement</label>
+          <label for="gfTA">Task Achievement</label>
           <textarea id="gfTA" rows="2"></textarea>
-          <label>Coherence & Cohesion</label>
+          <label for="gfCC">Coherence & Cohesion</label>
           <textarea id="gfCC" rows="2"></textarea>
-          <label>Lexical Resource</label>
+          <label for="gfLR">Lexical Resource</label>
           <textarea id="gfLR" rows="2"></textarea>
-          <label>Grammatical Range</label>
+          <label for="gfGR">Grammatical Range</label>
           <textarea id="gfGR" rows="2"></textarea>
-          <label>Suggestions</label>
+          <label for="gfSuggestion">Suggestions</label>
           <textarea id="gfSuggestion" rows="2"></textarea>
-          <label>Overall Score</label>
-          <input type="number" id="gfScore" step="0.5" min="0" max="9" />
-          <label>Passed</label>
+          <label for="gfScore">Overall Score</label>
+          <input type="number" id="gfScore" step="0.5" min="0" max="9" aria-describedby="gfScoreHint" />
+          <span id="gfScoreHint" class="sr-only">IELTS score from 0 to 9</span>
+          <label for="gfPassed">Passed</label>
           <select id="gfPassed">
             <option value="true">Yes</option>
             <option value="false">No</option>
@@ -150,26 +167,31 @@
   </div>
 
   <!-- Edit extraction item modal -->
-  <div class="modal-overlay" id="editExtractionModal">
+  <div class="modal-overlay" id="editExtractionModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="editExtractionModalTitle" aria-describedby="editExtractionModalDesc">
     <div class="modal">
-      <h3>Edit Language Unit</h3>
+      <h3 id="editExtractionModalTitle">Edit Language Unit</h3>
+      <p id="editExtractionModalDesc" class="sr-only">Edit category, subcategory, structure, and example for this language unit.</p>
       <form id="editExtractionForm">
         <input type="hidden" id="editExtractionIdx" />
         <div class="form-group">
-          <label>Category</label>
-          <input type="text" id="editCategory" />
+          <label for="editCategory">Category</label>
+          <input type="text" id="editCategory" aria-describedby="editCategoryDesc" />
+          <span id="editCategoryDesc" class="sr-only">Language unit category</span>
         </div>
         <div class="form-group">
-          <label>Subcategory</label>
-          <input type="text" id="editSubcategory" />
+          <label for="editSubcategory">Subcategory</label>
+          <input type="text" id="editSubcategory" aria-describedby="editSubcategoryDesc" />
+          <span id="editSubcategoryDesc" class="sr-only">Language unit subcategory</span>
         </div>
         <div class="form-group">
-          <label>Structure</label>
-          <textarea id="editStructure" rows="3"></textarea>
+          <label for="editStructure">Structure</label>
+          <textarea id="editStructure" rows="3" aria-describedby="editStructureDesc"></textarea>
+          <span id="editStructureDesc" class="sr-only">Grammatical or lexical structure</span>
         </div>
         <div class="form-group">
-          <label>Example</label>
-          <textarea id="editExample" rows="2"></textarea>
+          <label for="editExample">Example</label>
+          <textarea id="editExample" rows="2" aria-describedby="editExampleDesc"></textarea>
+          <span id="editExampleDesc" class="sr-only">Example sentence using the structure</span>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" id="cancelEditExtraction">Cancel</button>

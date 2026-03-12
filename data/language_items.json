@@ -26,6 +26,12 @@
     },
     {
       "category": "comparison",
+      "subcategory": "higher_than",
+      "structure": "[X] spent more time on [activity] than [Y]",
+      "example": "Men spent more time overall on leisure activities, whereas women dominated the time allocation for household tasks."
+    },
+    {
+      "category": "comparison",
       "subcategory": "lower_than",
       "structure": "[X] spend slightly less time [activity] than [Y]",
       "example": "Men also spend slightly less time reading, with 18 minutes compared to 19 minutes for women"
@@ -122,9 +128,27 @@
     },
     {
       "category": "trend_description",
+      "subcategory": "fluctuation",
+      "structure": "[the figure] fluctuated between [X] and [Y] until [year]",
+      "example": "It then fluctuated between 800 and 1000 thousand until 1999"
+    },
+    {
+      "category": "trend_description",
       "subcategory": "increase",
       "structure": "Physical activity rates increased for [X] in [Y]",
       "example": "Physical activity rates increased for both genders in the 45-54 age group"
+    },
+    {
+      "category": "trend_description",
+      "subcategory": "peak",
+      "structure": "[the figure] peaked at [X] in [year]",
+      "example": "the USA saw its highest immigration level in 1992, peaking at 1800 thousand"
+    },
+    {
+      "category": "trend_description",
+      "subcategory": "sharp_change",
+      "structure": "[the figure] experienced a steep decline to [X] by [year]",
+      "example": "before experiencing a steep decline to around 1000 thousand by 1993"
     }
   ]
 }
