@@ -112,6 +112,13 @@ To perfectly mimic a Band {band_score} performance, dynamically adjust your outp
 - OUTPUT FORMAT: Output ONLY the raw text of the essay. Do not include titles, markdown formatting, greetings, or meta-commentary about the band score.
 """
 
+    user_content = f"""Question: {raw_question}
+
+Extracted features:
+{features_str}
+
+Write a complete IELTS Writing Task 1 essay. Output ONLY the essay text, no explanations."""
+
     if grading_feedback and _grading_needs_revision(grading_feedback):
         feedback_str = _format_grading_feedback(grading_feedback)
         system_prompt = f"""You are an expert IELTS Writing Task 1 editor. Your task is to EDIT and REFINE an existing essay draft based on specific examiner feedback to ensure it exactly meets the standards of a Band {band_score}.
@@ -143,12 +150,9 @@ EXISTING ESSAY DRAFT TO EDIT:
 4. Output Format: Output ONLY the final, edited raw text of the essay. Do not include markdown formatting, titles, introductory phrases (e.g., "Here is the edited essay..."), or explanations of your edits.
 """
 
-    user_content = f"""Question: {raw_question}
+        user_content = f"""Question: {raw_question}
 
-Extracted features:
-{features_str}
-
-Write a complete IELTS Writing Task 1 essay. Output ONLY the essay text, no explanations."""
+Edit above essay based on the feedback. Output ONLY the essay text, no explanations."""
 
     writer("✏️ Generating essay...")
     messages = [

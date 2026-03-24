@@ -116,6 +116,12 @@
     },
     {
       "category": "sentence_pattern",
+      "subcategory": "overview_sentence",
+      "structure": "[X] experienced [trend]",
+      "example": "Canada also experienced a modest rise in the final year"
+    },
+    {
+      "category": "sentence_pattern",
       "subcategory": "trend_sentence",
       "structure": "[X] illustrates distinct patterns in [Y]",
       "example": "These trends illustrate distinct patterns in their daily routines."
@@ -134,6 +140,12 @@
     },
     {
       "category": "trend_description",
+      "subcategory": "fluctuation",
+      "structure": "There was a period of fluctuation between [X] and [Y]",
+      "example": "a period of fluctuation between 800 and 1000 thousand until 1999"
+    },
+    {
+      "category": "trend_description",
       "subcategory": "increase",
       "structure": "Physical activity rates increased for [X] in [Y]",
       "example": "Physical activity rates increased for both genders in the 45-54 age group"
@@ -146,9 +158,21 @@
     },
     {
       "category": "trend_description",
+      "subcategory": "peak",
+      "structure": "[the figure] peaked at [X] in [year]",
+      "example": "immigration to the USA surged dramatically to a peak of 1800 thousand in 1992"
+    },
+    {
+      "category": "trend_description",
       "subcategory": "sharp_change",
       "structure": "[the figure] experienced a steep decline to [X] by [year]",
       "example": "before experiencing a steep decline to around 1000 thousand by 1993"
+    },
+    {
+      "category": "trend_description",
+      "subcategory": "sharp_change",
+      "structure": "[the figure] declined sharply to [X] in [year]",
+      "example": "decline sharply to 1000 thousand in the following year"
     }
   ]
 }

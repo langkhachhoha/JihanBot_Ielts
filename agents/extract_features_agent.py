@@ -67,6 +67,7 @@ def extract_features_node(
     """
     extraction_feedback = state.get("extraction_feedback")
     extracted_features = state.get("extracted_features")
+    band_score = state["band_score"]
 
     if extraction_feedback and not _feedback_passed(extraction_feedback):
         writer("🔄 Processing: Correcting extracted features based on feedback...")
@@ -80,7 +81,7 @@ def extract_features_node(
 
     system_prompt = """You are an IELTS student carefully outlining your Writing Task 1 essay before writing the full text.
 Your task is to note down raw observations, key data points, and important trends from the visual to build a solid, detailed outline. 
-
+You must write at a Band {band_score} level with appropriate academic language.
 Do NOT write full, cohesive paragraphs. Instead, list detailed, bullet-point style observations for your overview and body paragraphs.
 Make sure to capture exact numbers, percentages, labels, mid-point fluctuations, intersections, plateaus, and missing/late data points so you don't miss any nuances when writing the actual essay.
 
