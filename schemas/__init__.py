@@ -1,3 +1,3 @@
-from .state import JihanState, ExtractedFeatures
+from .state import GradingAndRefinementResult, JihanState
 
-__all__ = ["JihanState", "ExtractedFeatures"]
+__all__ = ["GradingAndRefinementResult", "JihanState"]

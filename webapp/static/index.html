@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="JihanBot: AI-powered IELTS Writing Task 1 essay generator. Upload a chart image, get a band-scored essay with human-in-the-loop review." />
-  <title>JihanBot - IELTS Writing Task 1 Demo</title>
+  <meta name="description" content="JihanBot v2: IELTS Writing Task 1 and Task 2 — generate and grade with HITL planning." />
+  <title>JihanBot v2 — IELTS Writing</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Crimson+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -14,27 +14,38 @@
   <div class="app">
     <header class="hero">
       <h1 class="hero-title">JihanBot</h1>
-      <p class="hero-tagline">IELTS Writing Task 1 · AI-powered essay generator</p>
-      <p class="hero-desc">Upload a chart image, get a band-scored essay with human review at each step.</p>
+      <p class="hero-tagline">IELTS Writing Task 1 &amp; Task 2</p>
+      <p class="hero-desc">Upload a task image and/or enter the prompt text, choose your plan, then generate a model essay or grade your own writing.</p>
     </header>
 
     <main class="main">
       <section class="upload-section card">
-        <h2>Upload IELTS Task 1 Image</h2>
-        <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Upload IELTS Task 1 chart image. Drag and drop or click to select. PNG, JPG, WebP supported.">
+        <h2>Task &amp; prompt</h2>
+        <div class="form-group">
+          <label for="taskType">Task</label>
+          <select id="taskType" aria-label="IELTS task type">
+            <option value="task_1">Task 1</option>
+            <option value="task_2">Task 2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="promptText">Prompt text (optional if image carries full task)</label>
+          <textarea id="promptText" rows="4" placeholder="Paste the exam question / instructions"></textarea>
+        </div>
+        <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Optional image upload">
           <input type="file" id="fileInput" accept="image/*" hidden aria-hidden="true" />
           <div class="upload-content">
-            <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            <p>Drag & drop or click to select image</p>
-            <p class="upload-hint">PNG, JPG, WebP supported</p>
+            <p>Optional: chart / task image</p>
+            <p class="upload-hint">PNG, JPG, WebP</p>
           </div>
         </div>
         <div class="run-row">
-          <label for="bandScore">Target Band:
+          <label for="bandScore">Default target band:
             <select id="bandScore" aria-describedby="bandScoreHint">
               <option value="6">6.0</option>
               <option value="6.5">6.5</option>
@@ -44,168 +55,58 @@
               <option value="8.5">8.5</option>
             </select>
           </label>
-          <span id="bandScoreHint" class="sr-only">Target IELTS band score for generated essay (6.0 to 8.5)</span>
-          <button type="button" class="btn btn-primary" id="runBtn" disabled aria-label="Generate essay from uploaded image">Generate Essay</button>
+          <span id="bandScoreHint" class="sr-only">Default band; you can change it in the planning step.</span>
+          <button type="button" class="btn btn-primary" id="runBtn" aria-label="Start pipeline">Run</button>
         </div>
       </section>
 
       <section class="thinking-section card" id="thinkingSection">
-        <h2>Thinking <span class="badge" id="thinkingBadge">idle</span></h2>
+        <h2>Log <span class="badge" id="thinkingBadge">idle</span></h2>
         <div class="thinking-log" id="thinkingLog"></div>
       </section>
 
       <section class="essay-section card" id="essaySection">
-        <h2>Final Essay</h2>
-        <div class="essay-skeleton" id="essaySkeleton" aria-hidden="true">
-          <span class="skeleton-line short"></span>
-          <span class="skeleton-line medium"></span>
-          <span class="skeleton-line long"></span>
-          <span class="skeleton-line short"></span>
-          <span class="skeleton-line medium"></span>
-        </div>
+        <h2>Result</h2>
         <div class="essay-content" id="essayContent">
-          <p class="placeholder">Essay will appear here after generation.</p>
+          <p class="placeholder">Scores and refined essay appear when the run completes.</p>
         </div>
-      </section>
-
-      <div class="action-buttons-row" id="proposedButtonRow" style="display: none;">
-        <button type="button" class="btn btn-secondary" id="openProposedBtn" aria-label="Review proposed language units">
-          <svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
-          Review Proposed Language Units
-        </button>
-      </div>
-
-      <section class="extractions-section card extractions-collapsed" id="extractionsSection">
-        <div class="extractions-header">
-          <h2>Proposed Language Units</h2>
-          <p class="section-hint">Review, edit, approve or reject items to add to your gallery.</p>
-          <button type="button" class="btn btn-sm btn-secondary" id="closeProposedBtn" aria-label="Close proposed language units panel">Close</button>
-        </div>
-        <div class="extractions-list" id="extractionsList"></div>
-        <div class="extractions-actions" id="extractionsActions">
-          <button type="button" class="btn btn-primary" id="saveExtractionsBtn">Save Approved</button>
-        </div>
-      </section>
-
-      <div class="action-buttons-row">
-        <button type="button" class="btn btn-secondary" id="openGalleryBtn" aria-label="Open language gallery">
-          <svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /><line x1="8" y1="6" x2="16" y2="6" /><line x1="8" y1="10" x2="16" y2="10" /></svg>
-          Open Language Gallery
-        </button>
-      </div>
-
-      <section class="gallery-section card gallery-collapsed" id="gallerySection">
-        <div class="gallery-header">
-          <h2>Language Gallery</h2>
-          <p class="section-hint">Saved structures from previous essays.</p>
-          <button type="button" class="btn btn-sm btn-secondary" id="closeGalleryBtn" aria-label="Close language gallery panel">Close</button>
-        </div>
-        <div class="gallery-filters" id="galleryFilters"></div>
-        <div class="gallery-grid" id="galleryGrid"></div>
       </section>
     </main>
   </div>
 
-  <!-- HITL Modals -->
-  <div class="modal-overlay" id="featuresModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="featuresModalTitle" aria-describedby="featuresModalDesc">
-    <div class="modal">
-      <h3 id="featuresModalTitle">Review Extracted Features</h3>
-      <p id="featuresModalDesc" class="sr-only">Edit the extracted overview, paragraph content, and grouping logic before continuing the pipeline.</p>
-      <form id="featuresForm">
-        <div class="form-group">
-          <label for="feOverview">Overview</label>
-          <textarea id="feOverview" rows="4" aria-describedby="feOverviewDesc"></textarea>
-          <span id="feOverviewDesc" class="sr-only">Brief overview of the chart data</span>
-        </div>
-        <div class="form-group">
-          <label for="feParagraph1">Paragraph 1</label>
-          <textarea id="feParagraph1" rows="4" aria-describedby="feParagraph1Desc"></textarea>
-          <span id="feParagraph1Desc" class="sr-only">First body paragraph content</span>
-        </div>
-        <div class="form-group">
-          <label for="feParagraph2">Paragraph 2</label>
-          <textarea id="feParagraph2" rows="4" aria-describedby="feParagraph2Desc"></textarea>
-          <span id="feParagraph2Desc" class="sr-only">Second body paragraph content</span>
-        </div>
-        <div class="form-group">
-          <label for="feGrouping">Grouping Logic</label>
-          <textarea id="feGrouping" rows="2" aria-describedby="feGroupingDesc"></textarea>
-          <span id="feGroupingDesc" class="sr-only">How data is grouped or compared</span>
-        </div>
-        <div class="modal-actions">
-          <button type="submit" class="btn btn-primary">Accept & Continue</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="gradingModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="gradingModalTitle" aria-describedby="gradingModalDesc">
+  <div class="modal-overlay" id="planningModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="planningModalTitle">
     <div class="modal modal-wide">
-      <h3 id="gradingModalTitle">Review Grading Feedback</h3>
-      <p id="gradingModalDesc" class="sr-only">Review the essay grading and feedback. Accept as-is or edit before continuing.</p>
-      <div class="grading-essay" id="gradingEssay"></div>
-      <div class="grading-feedback" id="gradingFeedback"></div>
-      <form id="gradingForm">
-        <input type="hidden" id="gfAction" name="action" value="accept" />
-        <div class="form-group" id="gfEditFields">
-          <label for="gfTA">Task Achievement</label>
-          <textarea id="gfTA" rows="2"></textarea>
-          <label for="gfCC">Coherence & Cohesion</label>
-          <textarea id="gfCC" rows="2"></textarea>
-          <label for="gfLR">Lexical Resource</label>
-          <textarea id="gfLR" rows="2"></textarea>
-          <label for="gfGR">Grammatical Range</label>
-          <textarea id="gfGR" rows="2"></textarea>
-          <label for="gfSuggestion">Suggestions</label>
-          <textarea id="gfSuggestion" rows="2"></textarea>
-          <label for="gfScore">Overall Score</label>
-          <input type="number" id="gfScore" step="0.5" min="0" max="9" aria-describedby="gfScoreHint" />
-          <span id="gfScoreHint" class="sr-only">IELTS score from 0 to 9</span>
-          <label for="gfPassed">Passed</label>
-          <select id="gfPassed">
-            <option value="true">Yes</option>
-            <option value="false">No</option>
+      <h3 id="planningModalTitle">Planning</h3>
+      <p class="section-hint">Choose whether to generate a new essay or grade your draft. You can adjust the target band here.</p>
+      <form id="planningForm">
+        <div class="form-group">
+          <label for="planMode">Mode</label>
+          <select id="planMode">
+            <option value="generate">Generate new essay (then grade &amp; refine)</option>
+            <option value="grade_only">Grade my essay only</option>
           </select>
         </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="gfSkipBtn">Accept Essay (Skip Revision)</button>
-          <button type="button" class="btn btn-secondary" id="gfEditToggle">Edit Feedback</button>
-          <button type="submit" class="btn btn-primary">Accept & Continue</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Edit extraction item modal -->
-  <div class="modal-overlay" id="editExtractionModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="editExtractionModalTitle" aria-describedby="editExtractionModalDesc">
-    <div class="modal">
-      <h3 id="editExtractionModalTitle">Edit Language Unit</h3>
-      <p id="editExtractionModalDesc" class="sr-only">Edit category, subcategory, structure, and example for this language unit.</p>
-      <form id="editExtractionForm">
-        <input type="hidden" id="editExtractionIdx" />
         <div class="form-group">
-          <label for="editCategory">Category</label>
-          <input type="text" id="editCategory" aria-describedby="editCategoryDesc" />
-          <span id="editCategoryDesc" class="sr-only">Language unit category</span>
+          <label for="planBand">Target band</label>
+          <select id="planBand">
+            <option value="6">6.0</option>
+            <option value="6.5">6.5</option>
+            <option value="7" selected>7.0</option>
+            <option value="7.5">7.5</option>
+            <option value="8">8.0</option>
+            <option value="8.5">8.5</option>
+          </select>
         </div>
-        <div class="form-group">
-          <label for="editSubcategory">Subcategory</label>
-          <input type="text" id="editSubcategory" aria-describedby="editSubcategoryDesc" />
-          <span id="editSubcategoryDesc" class="sr-only">Language unit subcategory</span>
+        <div class="form-group" id="outlineGroup">
+          <label for="planOutline">Outline / approach (optional, improves generation)</label>
+          <textarea id="planOutline" rows="4" placeholder="Bullet your ideas or structure"></textarea>
         </div>
-        <div class="form-group">
-          <label for="editStructure">Structure</label>
-          <textarea id="editStructure" rows="3" aria-describedby="editStructureDesc"></textarea>
-          <span id="editStructureDesc" class="sr-only">Grammatical or lexical structure</span>
-        </div>
-        <div class="form-group">
-          <label for="editExample">Example</label>
-          <textarea id="editExample" rows="2" aria-describedby="editExampleDesc"></textarea>
-          <span id="editExampleDesc" class="sr-only">Example sentence using the structure</span>
+        <div class="form-group" id="essayGroup" style="display: none;">
+          <label for="planEssay">Your essay</label>
+          <textarea id="planEssay" rows="12" placeholder="Paste your full essay for grading"></textarea>
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="cancelEditExtraction">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="submit" class="btn btn-primary">Continue</button>
         </div>
       </form>
     </div>

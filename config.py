@@ -1,4 +1,4 @@
-"""Configuration and model initialization for JihanBot."""
+"""Configuration and model initialization for JihanBot v2."""
 
 import os
 from pathlib import Path
@@ -6,15 +6,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
-# Load .env from Jihan folder; override=True để ưu tiên giá trị trong .env, bỏ qua biến môi trường hệ thống
 _env_path = Path(__file__).parent / ".env"
 load_dotenv(_env_path)
 
 
 def get_vision_model(temperature: float = 0.5) -> ChatOpenAI:
-    """Get vision model via Together API for image understanding.
-    Uses Qwen3-VL-8B (serverless); alternatives: Qwen/Qwen3-VL-32B-Instruct,
-    meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"""
+    """Vision model via Together API for image-based prompts (Task 1/2)."""
     return ChatOpenAI(
         model="Qwen/Qwen3-VL-8B-Instruct",
         api_key=os.getenv("TOGETHER_API_KEY"),
@@ -23,27 +20,19 @@ def get_vision_model(temperature: float = 0.5) -> ChatOpenAI:
     )
 
 
+def get_openai_text_model(temperature: float = 0.7) -> ChatOpenAI:
+    """
+    OpenAI text model for generation, refinement, and grading (text-only paths).
+    Default model id is gpt-5; override with OPENAI_TEXT_MODEL.
+    """
+    model = os.getenv("OPENAI_TEXT_MODEL", "gpt-5")
+    return ChatOpenAI(
+        model=model,
+        api_key=os.getenv("OPENAI_API_KEY"),
+        temperature=temperature,
+    )
+
+
 def get_text_model(temperature: float = 0.7) -> ChatOpenAI:
-    """Get text model for essay generation.
-    Default: Together (Llama 4 Maverick). Set USE_TOGETHER_FOR_TEXT=false to use OpenAI gpt-4o."""
-    if os.getenv("USE_TOGETHER_FOR_TEXT", "true").lower() != "false":
-        return ChatOpenAI(
-            model=os.getenv("TOGETHER_TEXT_MODEL", "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"),
-            api_key=os.getenv("TOGETHER_API_KEY"),
-            base_url=os.getenv("TOGETHER_BASE_URL", "https://api.together.xyz/v1"),
-            temperature=temperature,
-        )
-    return ChatOpenAI(
-        model="gpt-4o",
-        api_key=os.getenv("OPENAI_API_KEY"),
-        temperature=temperature,
-    )
-
-
-def get_gpt4o_model(temperature: float = 0.3) -> ChatOpenAI:
-    """GPT-4o for language extraction SubAgent (structured output)."""
-    return ChatOpenAI(
-        model="gpt-4o",
-        api_key=os.getenv("OPENAI_API_KEY"),
-        temperature=temperature,
-    )
+    """Alias for backward compatibility: prefer get_openai_text_model for v2."""
+    return get_openai_text_model(temperature=temperature)

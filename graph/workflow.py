@@ -1,74 +1,62 @@
-"""LangGraph workflow for JihanBot IELTS Writing Task 1 pipeline."""
+"""LangGraph workflow for JihanBot v2 — Task 1/2 generate + grade."""
 
-from langgraph.graph import START, END, StateGraph
+from typing import Literal
+
+from langgraph.graph import END, START, StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
 
-from schemas.state import JihanState
 from agents import (
-    extract_question_node,
-    extract_features_node,
-    verify_extraction_node,
-    write_essay_node,
-    grade_essay_node,
-    hitl_review_features_node,
-    hitl_review_grading_node,
-    extract_language_units_node,
-    hitl_review_extractions_node,
+    grade_and_refine_node,
+    generate_essay_node,
+    hitl_planning_node,
+    ingest_source_node,
+    refine_ideas_node,
 )
+from schemas.state import JihanState
 
 
-def _get_passed(state: JihanState, key: str) -> bool:
-    """Safely get .passed from ExtractedFeedback or GradingFeedback (may be model or dict)."""
-    val = state.get(key)
-    if val is None:
-        return True
-    return val.passed if hasattr(val, "passed") else val.get("passed", True)
-
-
-def _route_after_verification(state: JihanState) -> str:
-    """Route from node_3: go to node_4 if verified or max retries, else back to node_2."""
-    if _get_passed(state, "extraction_feedback"):
-        return "write_essay"
-    return "extract_features"
-
-
-def _route_after_grading(state: JihanState):
-    """Route from node_5: go to extract_language_units if passed, else back to write_essay."""
-    if _get_passed(state, "grading_feedback"):
-        return "extract_language_units"
-    return "write_essay"
+def route_after_hitl(state: JihanState) -> Literal["refine", "generate", "grade"]:
+    """
+    After HITL planning: refine if generating with an outline; else generate or grade-only.
+    """
+    mode = state.get("user_mode")
+    if mode == "grade_only":
+        return "grade"
+    if mode == "generate":
+        outline = (state.get("user_outline") or "").strip()
+        if outline:
+            return "refine"
+        return "generate"
+    return "grade"
 
 
 def create_jihan_graph():
-    """Build and compile the JihanBot graph."""
+    """Build and compile the JihanBot v2 graph."""
     builder = StateGraph(JihanState)
 
-    # Add nodes
-    builder.add_node("extract_question", extract_question_node)
-    builder.add_node("extract_features", extract_features_node)
-    builder.add_node("hitl_review_features", hitl_review_features_node)
-    builder.add_node("verify_extraction", verify_extraction_node)
-    builder.add_node("write_essay", write_essay_node)
-    builder.add_node("grade_essay", grade_essay_node)
-    builder.add_node("hitl_review_grading", hitl_review_grading_node)
-    builder.add_node("extract_language_units", extract_language_units_node)
-    builder.add_node("hitl_review_extractions", hitl_review_extractions_node)
+    builder.add_node("ingest_source", ingest_source_node)
+    builder.add_node("hitl_planning", hitl_planning_node)
+    builder.add_node("refine_ideas", refine_ideas_node)
+    builder.add_node("generate_essay", generate_essay_node)
+    builder.add_node("grade_and_refine", grade_and_refine_node)
 
-    # Add edges
-    builder.add_edge(START, "extract_question")
-    builder.add_edge("extract_question", "extract_features")
-    builder.add_edge("extract_features", "hitl_review_features")
-    builder.add_edge("hitl_review_features", "verify_extraction")
-    builder.add_conditional_edges("verify_extraction", _route_after_verification)
-    builder.add_edge("write_essay", "grade_essay")
-    builder.add_edge("grade_essay", "hitl_review_grading")
-    builder.add_conditional_edges("hitl_review_grading", _route_after_grading)
-    builder.add_edge("extract_language_units", "hitl_review_extractions")
-    builder.add_edge("hitl_review_extractions", END)
+    builder.add_edge(START, "ingest_source")
+    builder.add_edge("ingest_source", "hitl_planning")
+    builder.add_conditional_edges(
+        "hitl_planning",
+        route_after_hitl,
+        {
+            "refine": "refine_ideas",
+            "generate": "generate_essay",
+            "grade": "grade_and_refine",
+        },
+    )
+    builder.add_edge("refine_ideas", "generate_essay")
+    builder.add_edge("generate_essay", "grade_and_refine")
+    builder.add_edge("grade_and_refine", END)
 
-    # Compile with checkpointing for state persistence and HITL interrupts
     memory = InMemorySaver()
     return builder.compile(
         checkpointer=memory,
-        interrupt_before=["hitl_review_features", "hitl_review_grading", "hitl_review_extractions"]
+        interrupt_before=["hitl_planning"],
     )

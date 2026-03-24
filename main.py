@@ -1,260 +1,108 @@
 """
-JihanBot - IELTS Writing Task 1 Generator
-Main app for testing the pipeline with custom streaming and HITL support.
+JihanBot v2 — IELTS Writing Task 1/2: generate and/or grade with one HITL planning step.
 """
 
-import json
+import argparse
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 from graph.workflow import create_jihan_graph
-from schemas.state import JihanState, ExtractedFeatures, GradingFeedback
+from schemas.state import JihanState
 
-# Load environment
 load_dotenv(Path(__file__).parent / ".env")
 
 
-def _prompt_user_for_features(current_features):
-    """Prompt user to review and potentially edit extracted features."""
+def _read_text_file(path: str) -> str:
+    return Path(path).read_text(encoding="utf-8")
+
+
+def _prompt_multiline(lead: str) -> str:
+    print(lead)
+    print("(Finish with a line containing only ###)")
+    lines: list[str] = []
+    while True:
+        line = input()
+        if line.strip() == "###":
+            break
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+
+def _collect_planning_interactive(state_values: dict) -> dict:
     print("\n" + "=" * 60)
-    print("👤 HUMAN REVIEW - EXTRACTED FEATURES")
+    print("HUMAN PLANNING (HITL)")
     print("=" * 60)
-    print("Options:")
-    print("  1. Accept as-is (press Enter)")
-    print("  2. Edit features (type 'edit')")
+    print("Task:", state_values.get("task_type"))
+    print("Prompt kind:", state_values.get("prompt_kind"))
+    t = (state_values.get("source_prompt_text") or "")[:500]
+    if t:
+        print("Prompt text (preview):\n", t, "..." if len(state_values.get("source_prompt_text") or "") > 500 else "", sep="")
     print("=" * 60)
+    mode_in = input("Mode — 1 = generate new essay, 2 = grade my essay only [1]: ").strip() or "1"
+    user_mode = "grade_only" if mode_in == "2" else "generate"
+    band = input("Target band (e.g. 6.5) [7]: ").strip() or "7"
 
-    choice = input("\nYour choice: ").strip().lower()
+    user_outline = ""
+    user_essay = ""
+    essay_under_review = ""
 
-    if choice == "edit":
-        print("\nEnter updated features (or press Enter to keep current):")
-        print("-" * 60)
-
-        overview = input(f"Overview [{current_features.overview[:50]}...]: ").strip()
-        paragraph_1 = input(f"Paragraph 1 [{current_features.paragraph_1[:50]}...]: ").strip()
-        paragraph_2 = input(f"Paragraph 2 [{current_features.paragraph_2[:50]}...]: ").strip()
-        grouping_logic = input(f"Grouping Logic [{current_features.grouping_logic[:50]}...]: ").strip()
-
-        updated_features = ExtractedFeatures(
-            overview=overview if overview else current_features.overview,
-            paragraph_1=paragraph_1 if paragraph_1 else current_features.paragraph_1,
-            paragraph_2=paragraph_2 if paragraph_2 else current_features.paragraph_2,
-            grouping_logic=grouping_logic if grouping_logic else current_features.grouping_logic,
-        )
-
-        print("\n✅ Features updated!")
-        return updated_features
-
-    print("\n✅ Features accepted as-is!")
-    return current_features
-
-
-def _prompt_user_for_grading(current_feedback):
-    """Prompt user to review and potentially edit grading feedback."""
-    print("\n" + "=" * 60)
-    print("👤 HUMAN REVIEW - GRADING FEEDBACK")
-    print("=" * 60)
-    print("Options:")
-    print("  1. Accept as-is (press Enter)")
-    print("  2. Accept essay without revision (type 'accept')")
-    print("  3. Edit feedback (type 'edit')")
-    print("=" * 60)
-
-    choice = input("\nYour choice: ").strip().lower()
-
-    if choice == "accept":
-        print("\n✅ Essay accepted! Skipping revision.")
-        return GradingFeedback(
-            passed=True,
-            task_achievement_feedback="",
-            coherence_cohesion_feedback="",
-            lexical_resource_feedback="",
-            grammatical_range_feedback="",
-            suggestion="",
-            overall_score=current_feedback.overall_score if hasattr(current_feedback, "overall_score") else 0.0,
-        )
-
-    elif choice == "edit":
-        print("\nEnter updated feedback (or press Enter to keep current):")
-        print("-" * 60)
-
-        passed_input = input(f"Passed [{'Yes' if current_feedback.passed else 'No'}] (yes/no): ").strip().lower()
-        passed = passed_input == "yes" if passed_input else current_feedback.passed
-
-        ta_feedback = input(f"Task Achievement feedback: ").strip()
-        cc_feedback = input(f"Coherence & Cohesion feedback: ").strip()
-        lr_feedback = input(f"Lexical Resource feedback: ").strip()
-        gr_feedback = input(f"Grammatical Range feedback: ").strip()
-        suggestion = input(f"Suggestions: ").strip()
-
-        updated_feedback = GradingFeedback(
-            passed=passed,
-            task_achievement_feedback=ta_feedback if ta_feedback else current_feedback.task_achievement_feedback,
-            coherence_cohesion_feedback=cc_feedback if cc_feedback else current_feedback.coherence_cohesion_feedback,
-            lexical_resource_feedback=lr_feedback if lr_feedback else current_feedback.lexical_resource_feedback,
-            grammatical_range_feedback=gr_feedback if gr_feedback else current_feedback.grammatical_range_feedback,
-            suggestion=suggestion if suggestion else current_feedback.suggestion,
-            overall_score=current_feedback.overall_score,
-        )
-
-        print("\n✅ Feedback updated!")
-        return updated_feedback
-
-    print("\n✅ Feedback accepted as-is!")
-    return current_feedback
-
-
-def _get_items_path(taxonomy_path: str) -> Path:
-    """Derive items file path from taxonomy path: same directory, language_items.json."""
-    return Path(taxonomy_path).parent / "language_items.json"
-
-
-def _append_items_to_database(taxonomy_path: str, items: list) -> None:
-    """Append approved language items to language_items.json (separate from taxonomy).
-    Items are organized/sorted by category, then subcategory for readability."""
-    if not taxonomy_path or not items:
-        return
-    items_path = _get_items_path(taxonomy_path)
-    try:
-        existing = []
-        if items_path.exists():
-            with open(items_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                existing = data.get("items", [])
-        merged = existing + items
-        merged.sort(key=lambda x: (x.get("category", ""), x.get("subcategory", "")))
-        data = {"items": merged}
-        with open(items_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except (json.JSONDecodeError, OSError):
-        pass
-
-
-def _truncate(s: str, max_len: int = 60) -> str:
-    """Truncate string for display, add ... if longer."""
-    if len(s) <= max_len:
-        return s
-    return s[: max_len - 3] + "..."
-
-
-def _prompt_edit_item(item: dict) -> dict:
-    """Prompt user to edit a language item's fields."""
-    cat = item.get("category", "")
-    sub = item.get("subcategory", "")
-    struct = item.get("structure", "")
-    ex = item.get("example", "")
-    print("    Enter new values (or press Enter to keep current):")
-    new_cat = input(f"    category [{cat}]: ").strip() or cat
-    new_sub = input(f"    subcategory [{sub}]: ").strip() or sub
-    new_struct = input(f"    structure [{_truncate(struct)}]: ").strip() or struct
-    new_ex = input(f"    example [{_truncate(ex)}]: ").strip() or ex
-    return {"category": new_cat, "subcategory": new_sub, "structure": new_struct, "example": new_ex}
-
-
-def _prompt_user_for_extractions(proposed: list, taxonomy_path: str) -> list:
-    """Prompt user to approve, reject, or edit each proposed language item. Write approved to language_items.json."""
-    if not proposed:
-        return []
-    print("\n" + "=" * 60)
-    print("👤 HUMAN REVIEW - PROPOSED LANGUAGE UNITS")
-    print("=" * 60)
-    print("For each item: approve (y), reject (n), or edit (edit).")
-    print("=" * 60)
-
-    approved = []
-    for i, item in enumerate(proposed, 1):
-        if not isinstance(item, dict):
-            item = {"category": "", "subcategory": "", "structure": str(item), "example": ""}
-        while True:
-            cat = item.get("category", "")
-            sub = item.get("subcategory", "")
-            struct = item.get("structure", "")
-            ex = item.get("example", "")
-            print(f"\n[{i}] category: {cat} | subcategory: {sub}")
-            print(f"    structure: {struct}")
-            print(f"    example: {ex}")
-            choice = input("    Add to database? (y/n/edit) [n]: ").strip().lower()
-            if choice == "y":
-                approved.append(item)
-                break
-            elif choice == "edit":
-                item = _prompt_edit_item(item)
-                print("    Item updated. Review again:")
-            else:
-                break
-
-    if approved and taxonomy_path:
-        _append_items_to_database(taxonomy_path, approved)
-        items_path = _get_items_path(taxonomy_path)
-        print(f"\n✅ {len(approved)} item(s) written to {items_path}.")
-    elif approved:
-        print(f"\n✅ {len(approved)} item(s) approved (no taxonomy path set).")
+    if user_mode == "generate":
+        want = input("Optional outline / plan (y/n) [n]: ").strip().lower()
+        if want == "y":
+            user_outline = _prompt_multiline("Paste your outline:")
     else:
-        print("\n✅ No items approved.")
+        user_essay = _prompt_multiline("Paste your essay to grade:")
+        essay_under_review = user_essay
 
-    return approved
-
-
-def run_jihan_bot(image_path: str, band_score: str = "7", database_path: str | None = None):
-    """
-    Run JihanBot pipeline with HITL support and custom streaming.
-
-    Args:
-        image_path: Path to IELTS Task 1 question image (local file)
-        band_score: Target IELTS band (e.g., "6", "7", "8")
-        database_path: Path to taxonomy JSON (default: data/language_taxonomy.json).
-                      Approved items are stored in language_items.json in the same directory.
-    """
-    graph = create_jihan_graph()
-
-    default_db_path = str(Path(__file__).parent / "data" / "language_taxonomy.json")
-    db_path = database_path or default_db_path
-
-    initial_state: JihanState = {
-        "image_path": image_path,
-        "band_score": band_score,
-        "raw_question": "",
-        "extracted_features": None,
-        "extraction_feedback": None,
-        "extraction_retry_count": 0,
-        "essay": "",
-        "grading_feedback": None,
-        "grading_retry_count": 0,
-        "human_review_features": None,
-        "human_review_grading": None,
-        "database_path": db_path,
-        "final_generated_essay": None,
-        "proposed_language_items": None,
-        "approved_language_items": None,
-        "human_review_extractions": None,
+    return {
+        "user_mode": user_mode,
+        "target_band": band,
+        "user_outline": user_outline or None,
+        "user_essay": user_essay or None,
+        "essay_under_review": essay_under_review,
     }
 
-    config = {"configurable": {"thread_id": "jihan-1"}}
+
+def build_initial_state(args: argparse.Namespace) -> JihanState:
+    text = args.text
+    if args.text_file:
+        text = _read_text_file(args.text_file)
+    return {
+        "task_type": args.task,
+        "prompt_kind": args.prompt_kind,
+        "source_image_path": args.image,
+        "source_prompt_text": text or "",
+        "user_mode": None,
+        "target_band": args.band,
+        "user_outline": None,
+        "user_essay": None,
+        "refined_brief": None,
+        "generated_essay": None,
+        "essay_under_review": "",
+        "grading_output": None,
+        "human_review_planning": None,
+    }
+
+
+def run_jihan_v2(args: argparse.Namespace) -> dict:
+    graph = create_jihan_graph()
+    config = {"configurable": {"thread_id": args.thread_id}}
+    initial_state = build_initial_state(args)
 
     print("=" * 60)
-    print("🚀 JihanBot - IELTS Writing Task 1 Generator (with HITL)")
-    print("=" * 60)
-    print(f"Image: {image_path}")
-    print(f"Target Band: {band_score}")
+    print("JihanBot v2 — IELTS Writing")
     print("=" * 60)
 
-    # Track if this is the first run
-    first_run = True
-
-    # Main loop: handle streaming and interrupts
+    first = True
     while True:
-        # Stream until interrupt or completion
-        # On first run, pass initial_state; on subsequent runs, pass None to resume
-        stream_input = initial_state if first_run else None
-        first_run = False
-
+        stream_input = initial_state if first else None
+        first = False
         for chunk in graph.stream(
             stream_input,
             config=config,
             stream_mode=["custom", "messages"],
         ):
-            # Chunk format: (mode, data) or (namespace, mode, data)
             if isinstance(chunk, tuple):
                 if len(chunk) == 3:
                     _ns, mode, data = chunk
@@ -262,92 +110,73 @@ def run_jihan_bot(image_path: str, band_score: str = "7", database_path: str | N
                     mode, data = chunk
                 if mode == "custom" and data:
                     print(data)
-                elif mode == "messages" and data:
-                    msg, _meta = data
-                    content = getattr(msg, "content", None) or ""
-                    if isinstance(content, str) and content:
-                        print(content, end="", flush=True)
-            elif chunk:
-                print(chunk)
 
-        # Check current state
         state = graph.get_state(config)
-
-        # If no more nodes to execute, workflow is complete
         if not state.next:
             break
 
-        # Handle interrupts
-        state_values = state.values if hasattr(state, "values") else {}
+        next_nodes = list(state.next) if hasattr(state.next, "__iter__") else [state.next]
+        if "hitl_planning" in next_nodes:
+            values = dict(state.values) if state.values else {}
+            update = _collect_planning_interactive(values)
+            graph.update_state(config, update, as_node="hitl_planning")
+        else:
+            break
 
-        if "hitl_review_features" in state.next:
-            # Human review for extracted features
-            current_features = state_values.get("extracted_features")
-            if current_features:
-                updated_features = _prompt_user_for_features(current_features)
-
-                # Update state with reviewed features
-                graph.update_state(
-                    config,
-                    {"extracted_features": updated_features},
-                    as_node="hitl_review_features"
-                )
-
-        elif "hitl_review_grading" in state.next:
-            # Human review for grading feedback
-            current_feedback = state_values.get("grading_feedback")
-            if current_feedback:
-                updated_feedback = _prompt_user_for_grading(current_feedback)
-
-                # Update state with reviewed feedback
-                graph.update_state(
-                    config,
-                    {"grading_feedback": updated_feedback},
-                    as_node="hitl_review_grading"
-                )
-
-        elif "hitl_review_extractions" in state.next:
-            # Human review for proposed language units
-            proposed = state_values.get("proposed_language_items") or []
-            db_path = state_values.get("database_path") or ""
-            approved = _prompt_user_for_extractions(proposed, db_path)
-            graph.update_state(
-                config,
-                {"approved_language_items": approved},
-                as_node="hitl_review_extractions"
-            )
-
-    # Get final state
-    final_state = graph.get_state(config)
-    state_values = final_state.values if hasattr(final_state, "values") else {}
-
+    final = graph.get_state(config)
+    out = dict(final.values) if final.values else {}
     print("\n" + "=" * 60)
-    print("📝 FINAL ESSAY")
+    print("RESULT")
     print("=" * 60)
-    essay = state_values.get("essay", "")
-    if essay:
-        print(essay)
+    go = out.get("grading_output")
+    if go is not None:
+        if hasattr(go, "model_dump"):
+            gd = go.model_dump()
+        else:
+            gd = dict(go) if isinstance(go, dict) else {}
+        print("Overall task band:", gd.get("overall_task_band"))
+        print("Refined essay:\n", gd.get("refined_essay", ""))
     else:
-        print("No essay generated.")
+        print("No grading output.")
     print("=" * 60)
+    return out
 
-    return state_values
+
+def main() -> None:
+    p = argparse.ArgumentParser(description="JihanBot v2 CLI")
+    p.add_argument("--task", choices=["task_1", "task_2"], default="task_1", help="IELTS task")
+    p.add_argument("--image", default=None, help="Path to task image (optional)")
+    p.add_argument("--text", default="", help="Task prompt as inline text")
+    p.add_argument("--text-file", default=None, help="Read task prompt from UTF-8 file")
+    p.add_argument(
+        "--prompt-kind",
+        choices=["image", "text", "image_text"],
+        default=None,
+        help="Override prompt kind (default: inferred from image/text)",
+    )
+    p.add_argument("--band", default="7", help="Default target band (can override in HITL)")
+    p.add_argument("--thread-id", default="cli-1", help="Checkpoint thread id")
+    args = p.parse_args()
+    if args.prompt_kind:
+        pk = args.prompt_kind
+    else:
+        has_img = bool(args.image)
+        has_txt = bool((args.text or "").strip() or args.text_file)
+        if has_img and has_txt:
+            pk = "image_text"
+        elif has_img:
+            pk = "image"
+        else:
+            pk = "text"
+    args.prompt_kind = pk
+
+    if args.prompt_kind in ("image", "image_text") and not args.image:
+        p.error("--image required for image / image_text prompt kind")
+    if args.prompt_kind == "text" and not (args.text or "").strip() and not args.text_file:
+        p.error("Provide --text or --text-file for text-only prompt kind")
+
+    run_jihan_v2(args)
 
 
 if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) < 2:
-        print("Usage: python main.py <path_to_ielts_task1_image> [band_score] [database_path]")
-        print("Example: python main.py ./sample_ielts_task1.png 7")
-        sys.exit(1)
-
-    image_path = sys.argv[1]
-    band_score = sys.argv[2] if len(sys.argv) > 2 else "7"
-    database_path = sys.argv[3] if len(sys.argv) > 3 else None
-
-    if not Path(image_path).exists():
-        print(f"Error: Image not found: {image_path}")
-        sys.exit(1)
-
-    run_jihan_bot(image_path, band_score, database_path)
+    main()

@@ -1,105 +1,41 @@
 /**
- * JihanBot Web Demo - Frontend
+ * JihanBot v2 — minimal UI: run → HITL planning → result
  */
 
 const API = '/api';
-let lastFocusedBeforeModal = null;
-
-/** Get focusable elements within a container */
-function getFocusable(container) {
-  const sel = 'button:not([disabled]), [href], input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-  return [...container.querySelectorAll(sel)].filter(el => {
-    if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') return false;
-    const style = getComputedStyle(el);
-    return style.visibility !== 'hidden' && style.display !== 'none';
-  });
-}
-
-/** Focus trap: keep Tab/Shift+Tab within modal */
-function setupFocusTrap(modalOverlay) {
-  const focusables = getFocusable(modalOverlay);
-  if (focusables.length === 0) return;
-  const first = focusables[0];
-  const last = focusables[focusables.length - 1];
-  first.focus();
-  modalOverlay.addEventListener('keydown', function handleTrap(e) {
-    if (e.key !== 'Tab') return;
-    if (e.shiftKey) {
-      if (document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      }
-    } else {
-      if (document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-  });
-}
-
-/** Show modal: trap focus, Esc to close */
-function openModal(modalOverlay, onEscape) {
-  lastFocusedBeforeModal = document.activeElement;
-  modalOverlay.classList.add('visible');
-  modalOverlay.setAttribute('aria-hidden', 'false');
-  setupFocusTrap(modalOverlay);
-  const escHandler = (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      onEscape();
-      modalOverlay.removeEventListener('keydown', escHandler);
-    }
-  };
-  modalOverlay.addEventListener('keydown', escHandler);
-}
-
-/** Close modal: restore focus */
-function closeModal(modalOverlay) {
-  modalOverlay.classList.remove('visible');
-  modalOverlay.setAttribute('aria-hidden', 'true');
-  if (lastFocusedBeforeModal && typeof lastFocusedBeforeModal.focus === 'function') {
-    lastFocusedBeforeModal.focus();
-  }
-}
-let selectedFile = null;
 let currentThreadId = null;
 let eventSource = null;
-let interruptState = null;
+let defaultBand = '7';
 
-// DOM elements
 const uploadZone = document.getElementById('uploadZone');
 const fileInput = document.getElementById('fileInput');
 const runBtn = document.getElementById('runBtn');
-const thinkingSection = document.getElementById('thinkingSection');
-const thinkingBadge = document.getElementById('thinkingBadge');
 const thinkingLog = document.getElementById('thinkingLog');
+const thinkingBadge = document.getElementById('thinkingBadge');
+const thinkingSection = document.getElementById('thinkingSection');
 const essaySection = document.getElementById('essaySection');
 const essayContent = document.getElementById('essayContent');
-const extractionsSection = document.getElementById('extractionsSection');
-const extractionsList = document.getElementById('extractionsList');
-const saveExtractionsBtn = document.getElementById('saveExtractionsBtn');
-const galleryGrid = document.getElementById('galleryGrid');
-const galleryFilters = document.getElementById('galleryFilters');
-const gallerySection = document.getElementById('gallerySection');
-const openGalleryBtn = document.getElementById('openGalleryBtn');
-const closeGalleryBtn = document.getElementById('closeGalleryBtn');
-const proposedButtonRow = document.getElementById('proposedButtonRow');
-const openProposedBtn = document.getElementById('openProposedBtn');
-const closeProposedBtn = document.getElementById('closeProposedBtn');
-const editExtractionModal = document.getElementById('editExtractionModal');
-const editExtractionForm = document.getElementById('editExtractionForm');
+const planningModal = document.getElementById('planningModal');
+const planningForm = document.getElementById('planningForm');
+const planMode = document.getElementById('planMode');
+const planBand = document.getElementById('planBand');
+const planOutline = document.getElementById('planOutline');
+const planEssay = document.getElementById('planEssay');
+const outlineGroup = document.getElementById('outlineGroup');
+const essayGroup = document.getElementById('essayGroup');
 
-// Modals
-const featuresModal = document.getElementById('featuresModal');
-const gradingModal = document.getElementById('gradingModal');
-const featuresForm = document.getElementById('featuresForm');
-const gradingForm = document.getElementById('gradingForm');
-const gfEditFields = document.getElementById('gfEditFields');
-const gfSkipBtn = document.getElementById('gfSkipBtn');
-const gfEditToggle = document.getElementById('gfEditToggle');
+let selectedFile = null;
 
-// Upload
+function openModal(overlay) {
+  overlay.classList.add('visible');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeModal(overlay) {
+  overlay.classList.remove('visible');
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
 uploadZone.addEventListener('click', () => fileInput.click());
 uploadZone.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') {
@@ -107,55 +43,83 @@ uploadZone.addEventListener('keydown', (e) => {
     fileInput.click();
   }
 });
-uploadZone.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  uploadZone.classList.add('dragover');
-});
-uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
-uploadZone.addEventListener('drop', (e) => {
-  e.preventDefault();
-  uploadZone.classList.remove('dragover');
-  const file = e.dataTransfer?.files?.[0];
-  if (file?.type.startsWith('image/')) {
-    setFile(file);
-  }
-});
 fileInput.addEventListener('change', () => {
-  const file = fileInput.files?.[0];
-  if (file) setFile(file);
+  const f = fileInput.files?.[0];
+  selectedFile = f || null;
+  uploadZone.querySelector('.upload-content p').textContent = f ? f.name : 'Optional: chart / task image';
 });
 
-function setFile(file) {
-  selectedFile = file;
-  uploadZone.querySelector('.upload-content p').textContent = file.name;
-  runBtn.disabled = false;
+planMode.addEventListener('change', () => {
+  const g = planMode.value === 'generate';
+  outlineGroup.style.display = g ? 'block' : 'none';
+  essayGroup.style.display = g ? 'none' : 'block';
+});
+
+function appendThinking(text) {
+  if (!text || typeof text !== 'string') return;
+  const line = document.createElement('div');
+  line.className = 'line';
+  line.textContent = text;
+  thinkingLog.appendChild(line);
+  thinkingLog.scrollTop = thinkingLog.scrollHeight;
 }
 
-// Run pipeline
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function renderResult(state) {
+  const go = state.grading_output;
+  if (!go) {
+    essayContent.innerHTML = '<p class="placeholder">No grading output.</p>';
+    return;
+  }
+  const band = go.overall_task_band ?? '';
+  const refined = go.refined_essay || '';
+  const parts = [
+    `<p><strong>Overall task band:</strong> ${escapeHtml(String(band))}</p>`,
+    `<p><strong>Task (TA/TR):</strong> ${escapeHtml(go.task_criterion_feedback || '')}</p>`,
+    `<p><strong>CC:</strong> ${escapeHtml(go.coherence_cohesion_feedback || '')}</p>`,
+    `<p><strong>LR:</strong> ${escapeHtml(go.lexical_resource_feedback || '')}</p>`,
+    `<p><strong>GRA:</strong> ${escapeHtml(go.grammatical_range_feedback || '')}</p>`,
+  ];
+  if (go.revision_summary) {
+    parts.push(`<p><strong>Revision summary:</strong> ${escapeHtml(go.revision_summary)}</p>`);
+  }
+  if (refined) {
+    parts.push(`<h3 class="result-sub">Refined essay</h3>`);
+    parts.push(refined.split('\n\n').map((p) => `<p class="paragraph">${escapeHtml(p)}</p>`).join(''));
+  }
+  essayContent.innerHTML = parts.join('');
+}
+
 runBtn.addEventListener('click', async () => {
-  if (!selectedFile) return;
+  const promptText = document.getElementById('promptText').value.trim();
+  const taskType = document.getElementById('taskType').value;
+  defaultBand = document.getElementById('bandScore').value;
+
+  if (!selectedFile && !promptText) {
+    appendThinking('Error: provide prompt text and/or an image.');
+    return;
+  }
+
   runBtn.disabled = true;
   thinkingLog.innerHTML = '';
-  thinkingCurrentLine = null;
   thinkingBadge.textContent = 'starting...';
   thinkingBadge.className = 'badge active';
   thinkingSection.classList.add('thinking');
-  essaySection.classList.add('loading');
-  essayContent.innerHTML = '<p class="placeholder">Generating...</p>';
-  extractionsList.innerHTML = '';
-  proposedItems.length = 0;
-  proposedButtonRow.style.display = 'none';
-  extractionsSection.classList.add('extractions-collapsed');
+  essayContent.innerHTML = '<p class="placeholder">Running…</p>';
 
   const formData = new FormData();
-  formData.append('image', selectedFile);
-  formData.append('band_score', document.getElementById('bandScore').value);
+  formData.append('task_type', taskType);
+  formData.append('band_score', defaultBand);
+  formData.append('prompt_text', promptText);
+  if (selectedFile) formData.append('image', selectedFile);
 
   try {
-    const res = await fetch(`${API}/run`, {
-      method: 'POST',
-      body: formData,
-    });
+    const res = await fetch(`${API}/run`, { method: 'POST', body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to start');
     currentThreadId = data.thread_id;
@@ -164,43 +128,9 @@ runBtn.addEventListener('click', async () => {
     appendThinking(`Error: ${err.message}`);
     thinkingBadge.textContent = 'error';
     thinkingBadge.className = 'badge error';
-    essaySection.classList.remove('loading');
-    essayContent.innerHTML = '<p class="placeholder">Essay will appear here after generation.</p>';
     runBtn.disabled = false;
   }
 });
-
-// Buffer: status messages = new line; token stream = append to current line
-let thinkingCurrentLine = null;
-function isStatusLine(t) {
-  return /^[📖📊✏️🔍📋📚✅❌⚠️👤⏸️▶️🔄]/.test(t) || (t.length > 30 && t.includes(' '));
-}
-
-function appendThinking(text) {
-  if (!text || typeof text !== 'string') return;
-  const hasNewline = text.includes('\n');
-  const isStatus = isStatusLine(text);
-  if (hasNewline || isStatus) {
-    const parts = text.split('\n');
-    parts.forEach((part) => {
-      if (part || isStatus) {
-        const line = document.createElement('div');
-        line.className = 'line';
-        line.textContent = part;
-        thinkingLog.appendChild(line);
-        thinkingCurrentLine = null;
-      }
-    });
-  } else {
-    if (!thinkingCurrentLine) {
-      thinkingCurrentLine = document.createElement('div');
-      thinkingCurrentLine.className = 'line thinking-inline';
-      thinkingLog.appendChild(thinkingCurrentLine);
-    }
-    thinkingCurrentLine.textContent = (thinkingCurrentLine.textContent || '') + text;
-  }
-  thinkingLog.scrollTop = thinkingLog.scrollHeight;
-}
 
 function connectSSE() {
   if (eventSource) eventSource.close();
@@ -209,24 +139,24 @@ function connectSSE() {
   eventSource.addEventListener('thinking', (e) => {
     const data = JSON.parse(e.data || '{}');
     if (data.text) appendThinking(data.text);
-    thinkingBadge.textContent = 'thinking...';
+    thinkingBadge.textContent = 'running';
     thinkingBadge.className = 'badge active';
   });
 
   eventSource.addEventListener('interrupt', (e) => {
     const data = JSON.parse(e.data || '{}');
-    interruptState = data.state || {};
     eventSource.close();
     eventSource = null;
     thinkingBadge.textContent = 'paused';
     thinkingSection.classList.remove('thinking');
-
-    if (data.node === 'hitl_review_features') {
-      showFeaturesModal(interruptState);
-    } else if (data.node === 'hitl_review_grading') {
-      showGradingModal(interruptState);
-    } else if (data.node === 'hitl_review_extractions') {
-      showExtractionsPanel(interruptState);
+    if (data.node === 'hitl_planning') {
+      planBand.value = defaultBand;
+      planMode.value = 'generate';
+      planOutline.value = '';
+      planEssay.value = '';
+      outlineGroup.style.display = 'block';
+      essayGroup.style.display = 'none';
+      openModal(planningModal);
     }
   });
 
@@ -237,70 +167,33 @@ function connectSSE() {
     thinkingBadge.textContent = 'done';
     thinkingBadge.className = 'badge done';
     thinkingSection.classList.remove('thinking');
-    essaySection.classList.remove('loading');
     runBtn.disabled = false;
-
-    const state = data.state || {};
-    const essay = state.essay || '';
-    if (essay) {
-      essayContent.innerHTML = essay.split('\n\n').map(p => 
-        `<p class="paragraph">${escapeHtml(p)}</p>`
-      ).join('');
-    } else {
-      essayContent.innerHTML = '<p class="placeholder">No essay generated.</p>';
-    }
-
-    const proposed = state.proposed_language_items || [];
-    if (proposed.length > 0 && proposedItems.length === 0) {
-      showExtractionsPanel({ ...state, proposed_language_items: proposed });
-    }
+    renderResult(data.state || {});
   });
 
   eventSource.onerror = () => {
     if (eventSource?.readyState === EventSource.CLOSED) return;
-    appendThinking('Connection interrupted. You may need to resubmit.');
+    appendThinking('Connection error.');
     thinkingBadge.textContent = 'error';
     thinkingBadge.className = 'badge error';
-    essaySection.classList.remove('loading');
-    essayContent.innerHTML = '<p class="placeholder">Essay will appear here after generation.</p>';
     runBtn.disabled = false;
   };
 }
 
-function escapeHtml(s) {
-  const div = document.createElement('div');
-  div.textContent = s;
-  return div.innerHTML;
-}
-
-// Features modal
-function showFeaturesModal(state) {
-  const ef = state.extracted_features || {};
-  document.getElementById('feOverview').value = ef.overview || '';
-  document.getElementById('feParagraph1').value = ef.paragraph_1 || '';
-  document.getElementById('feParagraph2').value = ef.paragraph_2 || '';
-  document.getElementById('feGrouping').value = ef.grouping_logic || '';
-  openModal(featuresModal, () => closeModal(featuresModal));
-}
-
-featuresForm.addEventListener('submit', async (e) => {
+planningForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const formData = new FormData();
   formData.append('thread_id', currentThreadId);
-  formData.append('overview', document.getElementById('feOverview').value);
-  formData.append('paragraph_1', document.getElementById('feParagraph1').value);
-  formData.append('paragraph_2', document.getElementById('feParagraph2').value);
-  formData.append('grouping_logic', document.getElementById('feGrouping').value);
-
+  formData.append('user_mode', planMode.value);
+  formData.append('target_band', planBand.value);
+  formData.append('user_outline', planOutline.value);
+  formData.append('user_essay', planEssay.value);
   try {
-    const res = await fetch(`${API}/hitl/features`, {
-      method: 'POST',
-      body: formData,
-    });
+    const res = await fetch(`${API}/hitl/planning`, { method: 'POST', body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
-    closeModal(featuresModal);
-    thinkingBadge.textContent = 'thinking...';
+    closeModal(planningModal);
+    thinkingBadge.textContent = 'running';
     thinkingBadge.className = 'badge active';
     thinkingSection.classList.add('thinking');
     connectSSE();
@@ -308,243 +201,3 @@ featuresForm.addEventListener('submit', async (e) => {
     appendThinking(`Error: ${err.message}`);
   }
 });
-
-// Grading modal
-function showGradingModal(state) {
-  const essay = state.essay || '';
-  const gf = state.grading_feedback || {};
-  document.getElementById('gradingEssay').textContent = essay;
-  document.getElementById('gradingFeedback').innerHTML = formatGradingFeedback(gf);
-  document.getElementById('gfTA').value = gf.task_achievement_feedback || '';
-  document.getElementById('gfCC').value = gf.coherence_cohesion_feedback || '';
-  document.getElementById('gfLR').value = gf.lexical_resource_feedback || '';
-  document.getElementById('gfGR').value = gf.grammatical_range_feedback || '';
-  document.getElementById('gfSuggestion').value = gf.suggestion || '';
-  document.getElementById('gfScore').value = gf.overall_score ?? '';
-  document.getElementById('gfPassed').value = gf.passed ? 'true' : 'false';
-  document.getElementById('gfAction').value = 'accept';
-  gfEditFields.style.display = 'none';
-  openModal(gradingModal, () => closeModal(gradingModal));
-}
-
-function formatGradingFeedback(gf) {
-  const status = gf.passed ? '<span class="status passed">PASSED</span>' : '<span class="status failed">NEEDS REVISION</span>';
-  let html = `<div class="status">${status}</div>`;
-  if (gf.overall_score != null) html += `<p><strong>Score:</strong> ${gf.overall_score}</p>`;
-  if (gf.task_achievement_feedback) html += `<p><strong>Task Achievement:</strong> ${escapeHtml(gf.task_achievement_feedback)}</p>`;
-  if (gf.coherence_cohesion_feedback) html += `<p><strong>Coherence & Cohesion:</strong> ${escapeHtml(gf.coherence_cohesion_feedback)}</p>`;
-  if (gf.lexical_resource_feedback) html += `<p><strong>Lexical Resource:</strong> ${escapeHtml(gf.lexical_resource_feedback)}</p>`;
-  if (gf.grammatical_range_feedback) html += `<p><strong>Grammatical Range:</strong> ${escapeHtml(gf.grammatical_range_feedback)}</p>`;
-  if (gf.suggestion) html += `<p><strong>Suggestions:</strong> ${escapeHtml(gf.suggestion)}</p>`;
-  return html || '<p>No feedback details.</p>';
-}
-
-gfSkipBtn.addEventListener('click', async () => {
-  const formData = new FormData();
-  formData.append('thread_id', currentThreadId);
-  formData.append('action', 'skip_revision');
-  try {
-    const res = await fetch(`${API}/hitl/grading`, { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed');
-    closeModal(gradingModal);
-    thinkingBadge.textContent = 'thinking...';
-    thinkingBadge.className = 'badge active';
-    thinkingSection.classList.add('thinking');
-    connectSSE();
-  } catch (err) {
-    appendThinking(`Error: ${err.message}`);
-  }
-});
-
-gfEditToggle.addEventListener('click', () => {
-  gfEditFields.style.display = gfEditFields.style.display === 'none' ? 'block' : 'none';
-});
-
-gradingForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const formData = new FormData();
-  formData.append('thread_id', currentThreadId);
-  formData.append('action', document.getElementById('gfAction').value);
-  formData.append('passed', document.getElementById('gfPassed').value);
-  formData.append('task_achievement_feedback', document.getElementById('gfTA').value);
-  formData.append('coherence_cohesion_feedback', document.getElementById('gfCC').value);
-  formData.append('lexical_resource_feedback', document.getElementById('gfLR').value);
-  formData.append('grammatical_range_feedback', document.getElementById('gfGR').value);
-  formData.append('suggestion', document.getElementById('gfSuggestion').value);
-  formData.append('overall_score', document.getElementById('gfScore').value);
-
-  try {
-    const res = await fetch(`${API}/hitl/grading`, { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed');
-    closeModal(gradingModal);
-    thinkingBadge.textContent = 'thinking...';
-    thinkingBadge.className = 'badge active';
-    thinkingSection.classList.add('thinking');
-    connectSSE();
-  } catch (err) {
-    appendThinking(`Error: ${err.message}`);
-  }
-});
-
-// Extractions
-const proposedItems = [];
-
-function showExtractionsPanel(state) {
-  const items = state.proposed_language_items || [];
-  proposedItems.length = 0;
-  items.forEach((item) => {
-    proposedItems.push({ ...item, approved: false, rejected: false });
-  });
-  renderExtractions();
-  proposedButtonRow.style.display = '';
-  extractionsSection.classList.remove('extractions-collapsed');
-}
-
-function renderExtractions() {
-  extractionsList.innerHTML = '';
-  proposedItems.forEach((item, i) => {
-    if (item.rejected) return;
-    const el = document.createElement('div');
-    el.className = `extraction-item ${item.approved ? 'approved' : ''}`;
-    el.dataset.index = i;
-    el.innerHTML = `
-      <span class="meta">${escapeHtml(item.category || '')} / ${escapeHtml(item.subcategory || '')}</span>
-      <span class="structure">${escapeHtml(item.structure || '')}</span>
-      <span class="example">${escapeHtml(item.example || '')}</span>
-      <div class="extraction-actions">
-        <button type="button" class="btn btn-sm ${item.approved ? 'btn-secondary' : 'btn-primary'}" data-action="approve" data-i="${i}">${item.approved ? 'Undo' : 'Approve'}</button>
-        <button type="button" class="btn btn-sm btn-secondary" data-action="edit" data-i="${i}">Edit</button>
-        <button type="button" class="btn btn-sm btn-secondary" data-action="reject" data-i="${i}">Reject</button>
-      </div>
-    `;
-    el.querySelector('[data-action="approve"]').addEventListener('click', () => {
-      proposedItems[i].approved = !proposedItems[i].approved;
-      renderExtractions();
-    });
-    el.querySelector('[data-action="edit"]').addEventListener('click', () => openEditModal(i));
-    el.querySelector('[data-action="reject"]').addEventListener('click', () => {
-      proposedItems[i].rejected = true;
-      renderExtractions();
-    });
-    extractionsList.appendChild(el);
-  });
-}
-
-function openEditModal(idx) {
-  const item = proposedItems[idx];
-  if (!item) return;
-  document.getElementById('editExtractionIdx').value = idx;
-  document.getElementById('editCategory').value = item.category || '';
-  document.getElementById('editSubcategory').value = item.subcategory || '';
-  document.getElementById('editStructure').value = item.structure || '';
-  document.getElementById('editExample').value = item.example || '';
-  openModal(editExtractionModal, () => closeModal(editExtractionModal));
-}
-
-editExtractionForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const idx = parseInt(document.getElementById('editExtractionIdx').value, 10);
-  proposedItems[idx] = {
-    ...proposedItems[idx],
-    category: document.getElementById('editCategory').value.trim(),
-    subcategory: document.getElementById('editSubcategory').value.trim(),
-    structure: document.getElementById('editStructure').value.trim(),
-    example: document.getElementById('editExample').value.trim(),
-  };
-  closeModal(editExtractionModal);
-  renderExtractions();
-});
-
-document.getElementById('cancelEditExtraction').addEventListener('click', () => {
-  closeModal(editExtractionModal);
-});
-
-saveExtractionsBtn.addEventListener('click', async () => {
-  const approved = proposedItems.filter(i => !i.rejected && i.approved).map(({ category, subcategory, structure, example }) =>
-    ({ category, subcategory, structure, example }));
-  const formData = new FormData();
-  formData.append('thread_id', currentThreadId);
-  formData.append('body', JSON.stringify(approved));
-
-  try {
-    const res = await fetch(`${API}/hitl/extractions`, { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed');
-    proposedButtonRow.style.display = 'none';
-    extractionsSection.classList.add('extractions-collapsed');
-    proposedItems.length = 0;
-    thinkingBadge.textContent = 'thinking...';
-    thinkingBadge.className = 'badge active';
-    thinkingSection.classList.add('thinking');
-    connectSSE();
-    loadGallery();
-  } catch (err) {
-    appendThinking(`Error: ${err.message}`);
-  }
-});
-
-// Gallery
-let galleryCategoryFilter = '';
-
-async function loadGallery() {
-  try {
-    const res = await fetch(`${API}/gallery`);
-    const data = await res.json();
-    renderGallery(data.items || [], data.taxonomy || {});
-    renderGalleryFilters(data.items || [], data.taxonomy || {});
-  } catch (err) {
-    galleryGrid.innerHTML = '<p class="placeholder">Failed to load gallery.</p>';
-  }
-}
-
-function renderGalleryFilters(items, taxonomy) {
-  const categories = [...new Set(items.map(i => i.category).filter(Boolean))];
-  galleryFilters.innerHTML = `
-    <button type="button" class="filter-btn ${!galleryCategoryFilter ? 'active' : ''}" data-cat="">All</button>
-    ${categories.map(c => 
-      `<button type="button" class="filter-btn ${galleryCategoryFilter === c ? 'active' : ''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`
-    ).join('')}
-  `;
-  galleryFilters.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      galleryCategoryFilter = btn.dataset.cat || '';
-      renderGalleryFilters(items, taxonomy);
-      renderGallery(items, taxonomy);
-    });
-  });
-}
-
-function renderGallery(items, taxonomy) {
-  let filtered = items;
-  if (galleryCategoryFilter) {
-    filtered = items.filter(i => i.category === galleryCategoryFilter);
-  }
-  galleryGrid.innerHTML = filtered.map(item => `
-    <div class="gallery-card">
-      <span class="category">${escapeHtml(item.category || '')}</span>
-      <span class="subcategory">${escapeHtml(item.subcategory || '')}</span>
-      <span class="structure">${escapeHtml(item.structure || '')}</span>
-      <span class="example">${escapeHtml(item.example || '')}</span>
-    </div>
-  `).join('') || '<p class="placeholder">No items yet. Approve language units from generated essays to build your gallery.</p>';
-}
-
-openGalleryBtn.addEventListener('click', () => {
-  gallerySection.classList.remove('gallery-collapsed');
-});
-
-closeGalleryBtn.addEventListener('click', () => {
-  gallerySection.classList.add('gallery-collapsed');
-});
-
-openProposedBtn.addEventListener('click', () => {
-  extractionsSection.classList.remove('extractions-collapsed');
-});
-
-closeProposedBtn.addEventListener('click', () => {
-  extractionsSection.classList.add('extractions-collapsed');
-});
-
-loadGallery();

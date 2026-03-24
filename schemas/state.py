@@ -1,139 +1,67 @@
-"""State schema for JihanBot IELTS Writing Task 1 pipeline."""
+"""State schema for JihanBot IELTS Writing v2 (Task 1 and Task 2: generate + grade)."""
 
-from typing import Optional, TypedDict, Literal
+from typing import Literal, Optional, TypedDict
+
 from pydantic import BaseModel, Field
 
 
-
-class ExtractedFeatures(BaseModel):
-    """Structure for extracted IELTS Writing Task 1 features."""
-
-    overview: str = Field(
-        description="Summary of the main trends and key features."
-    )
-    
-    paragraph_1: str = Field(
-        description="Detailed analysis of the first data group."
-    )
-    
-    paragraph_2: str = Field(
-        description="Detailed analysis of the remaining data."
-    )
-    
-    grouping_logic: str = Field(
-        description="The strategy used to divide the information into two paragraphs."
-    )
+TaskType = Literal["task_1", "task_2"]
+PromptKind = Literal["image", "text", "image_text"]
+UserMode = Literal["generate", "grade_only"]
 
 
-class ExtractedFeedback(BaseModel):
-    """Feedback structure for IELTS Writing Task 1 components."""
+class GradingAndRefinementResult(BaseModel):
+    """Structured grading + lightly refined essay from node_4."""
 
-    passed: bool = Field(
-        description="Whether the extraction is correct."
+    task_criterion_feedback: str = Field(
+        description="Feedback for Task Achievement (Task 1) or Task Response (Task 2)."
     )
-
-    overview_feedback: str = Field(
-        description="Critique of the main trends and key feature identification."
-    )
-    
-    paragraph_1_feedback: str = Field(
-        description="Critique of the data analysis and accuracy in the first paragraph."
-    )
-    
-    paragraph_2_feedback: str = Field(
-        description="Critique of the data analysis and accuracy in the second paragraph."
-    )
-
-
-class GradingFeedback(BaseModel):
-    """Comprehensive feedback and grading structure for IELTS Writing Task 1."""
-
-    passed: bool = Field(
-        description="Indicates whether the essay meets the target band score requirements."
-    )
-    
-    task_achievement_feedback: str = Field(
-        description="Evaluation of data selection, accuracy, and the clarity of the overview."
-    )
-    
     coherence_cohesion_feedback: str = Field(
-        description="Evaluation of logical organization, paragraphing, and the use of linking devices."
+        description="Feedback for Coherence and Cohesion."
     )
-    
     lexical_resource_feedback: str = Field(
-        description="Evaluation of vocabulary range, accuracy, and appropriate use of academic terms."
+        description="Feedback for Lexical Resource."
     )
-    
     grammatical_range_feedback: str = Field(
-        description="Evaluation of sentence structure variety, grammatical accuracy, and punctuation."
+        description="Feedback for Grammatical Range and Accuracy."
     )
-
-    suggestion: str = Field(
-        description="Actionable recommendations and specific steps to adapt the essay to the target band score."
+    score_task: float = Field(
+        description="Band score for Task Achievement / Task Response (whole or half band)."
     )
-
-    overall_score: float = Field(
-        description="The final estimated overall band score (e.g., 6.0, 6.5, 7.0)."
+    score_cc: float = Field(description="Band score for Coherence and Cohesion.")
+    score_lr: float = Field(description="Band score for Lexical Resource.")
+    score_gra: float = Field(description="Band score for Grammatical Range and Accuracy.")
+    overall_task_band: float = Field(
+        description="Task band: mean of the four criterion scores, rounded to nearest half band."
     )
-
-
-class ExtractedLanguageItem(BaseModel):
-    """A single language unit extracted from the final essay (vocabulary, collocation, structure, pattern)."""
-
-    category: Literal["trend_description", "comparison", "data_reference", 
-    "quantity_expression", "sentence_pattern","reporting_function"] = Field(
-        description="The top-level taxonomy category assigned to this item.")
-    subcategory: str = Field(
-        description="Existing subcategory or a controlled extension belonging to the category."
+    refined_essay: str = Field(
+        description="Essay after light editing for clarity/accuracy/cohesion; must preserve content and stance."
     )
-    structure: str = Field(
-        description="The linguistic pattern or structure, e.g. 'Sth increased significantly over the period'."
-    )
-    example: str = Field(
-        description="A supporting example taken directly from the final essay to show how the structure appeared in context."
+    revision_summary: str = Field(
+        default="",
+        description="Short bullet-style summary of edits applied in refined_essay.",
     )
 
 
-class LanguageExtractionResult(BaseModel):
-    """Result of LLM extraction: list of language items to propose for human review."""
+class JihanState(TypedDict, total=False):
+    """State shared across JihanBot v2 nodes."""
 
-    items: list[ExtractedLanguageItem] = Field(
-        default_factory=list,
-        description="Extracted language units for human review.",
-    )
+    # Source (set before / at ingest)
+    task_type: TaskType
+    prompt_kind: PromptKind
+    source_image_path: Optional[str]
+    source_prompt_text: str
 
+    # HITL planning (node_1) — filled when client resumes interrupt
+    user_mode: Optional[UserMode]
+    target_band: str
+    user_outline: Optional[str]
+    user_essay: Optional[str]
 
-class JihanState(TypedDict):
-    """State shared across all JihanBot nodes."""
+    # Pipeline
+    refined_brief: Optional[str]
+    generated_essay: Optional[str]
+    essay_under_review: str
+    grading_output: Optional[GradingAndRefinementResult]
 
-    # Input
-    image_path: str
-    band_score: str
-
-    # Node 1: Extract question
-    raw_question: str
-
-    # Node 2: Extract features
-    extracted_features: Optional[ExtractedFeatures]
-    extraction_feedback: Optional[ExtractedFeedback]  # Feedback from node_3 when verification fails
-
-    # Node 3: Verify extraction
-    extraction_retry_count: int
-
-    # Node 4: Write essay
-    essay: str
-    grading_feedback: Optional[GradingFeedback]  # Feedback from node_5 when grading fails
-
-    # Node 5: Grade essay
-    grading_retry_count: int
-
-    # HITL tracking
-    human_review_features: Optional[bool]  # Track if features were reviewed by human
-    human_review_grading: Optional[bool]  # Track if grading was reviewed by human
-
-    # Language extraction SubAgent (runs when grading passed)
-    database_path: Optional[str]  # Path to taxonomy/database JSON file
-    final_generated_essay: Optional[str]  # Copy of final essay for extraction
-    proposed_language_items: Optional[list]  # Items proposed by LLM for human review
-    approved_language_items: Optional[list]  # Items approved by human for database
-    human_review_extractions: Optional[bool]  # Track if extraction review occurred
+    human_review_planning: Optional[bool]

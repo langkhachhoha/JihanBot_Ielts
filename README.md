@@ -1,90 +1,81 @@
-# JihanBot
+# JihanBot v2
 
-Generates IELTS Writing Task 1 essays from chart images via LangGraph, with human-in-the-loop review at three checkpoints and a language structure gallery for reusable phrasing.
+IELTS **Writing Task 1** and **Task 2** in one LangGraph pipeline: ingest prompt (image and/or text), **one HITL planning** step (generate vs grade-only, band, optional outline or user essay), optional **idea refinement**, conditional **essay generation** (regulation-informed, VLM or GPT text model), then **grading and light refinement** with scores and a revised essay that preserves the writer’s stance and content.
 
-## Pipeline
+## Flow (Mermaid)
 
-![Pipeline diagram](pipeline-diagram.png)
+```mermaid
+flowchart LR
+  startNode([START]) --> ingest[ingest_source]
+  ingest --> hitl[hitl_planning]
+  hitl --> r{outline_and_generate?}
+  r -->|yes| refine[refine_ideas]
+  r -->|no| g{generate?}
+  refine --> gen[generate_essay]
+  g -->|yes| gen
+  g -->|no| grade[grade_and_refine]
+  gen --> grade
+  grade --> finishNode([Done])
+```
 
-Flow: extract question → extract features → **HITL features** → verify extraction → write essay → grade essay → **HITL grading** → extract language units → **HITL extractions** → done. Each HITL step pauses for review and edits before continuing.
+- **interrupt_before** only `hitl_planning` (human supplies mode, band, outline/essay via CLI or web).
+- **Regulations**: system prompts load `Jihan/regulations/ielts_writing_task_1_regulation.md` or `ielts_writing_task_2_regulation.md` by task type.
+- **Models**: image branch uses Together **VLM** (`get_vision_model`); text generation, refinement, and grading use **OpenAI** (`OPENAI_TEXT_MODEL`, default `gpt-5`).
 
 ## Project structure
 
 ```
 Jihan/
-├── pipeline-diagram.png
-├── main.py                    # CLI entry
-├── config.py                  # Model config (vision, text)
+├── main.py                 # CLI entry (v2)
+├── config.py               # Vision + OpenAI text models
 ├── requirements.txt
+├── pytest.ini
+├── tests/                  # pytest (routing + regulations)
+├── regulations/            # IELTS grading regulation markdown (injected in agents)
 ├── graph/
 │   └── workflow.py
 ├── agents/
-│   ├── extract_question_agent.py
-│   ├── extract_features_agent.py
-│   ├── verify_extraction_agent.py
-│   ├── write_essay_agent.py
-│   ├── grade_essay_agent.py
-│   ├── extract_language_units_agent.py
-│   ├── hitl_review_features_node.py
-│   ├── hitl_review_grading_node.py
-│   └── hitl_review_extractions_node.py
+│   ├── ingest_source_agent.py
+│   ├── hitl_planning_node.py
+│   ├── refine_ideas_agent.py
+│   ├── generate_essay_agent.py
+│   └── grade_and_refine_agent.py
 ├── schemas/
-│   └── state.py               # JihanState, ExtractedFeatures, GradingFeedback
-├── data/
-│   ├── language_taxonomy.json  # Category/subcategory for language units
-│   └── language_items.json     # Approved language structures
+│   └── state.py
 ├── utils/
-│   └── image.py
-└── webapp/                     # FastAPI demo
-    ├── app.py
-    ├── requirements.txt
-    ├── static/
-    │   ├── index.html
-    │   ├── styles.css
-    │   └── app.js
-    └── uploads/
+│   ├── image.py
+│   └── regulations.py
+├── data/                   # legacy taxonomy files (unused by v2 graph)
+└── webapp/                 # FastAPI + SSE + planning modal
 ```
+
+## Environment
+
+Create `Jihan/.env`:
+
+| Variable | Purpose |
+|----------|---------|
+| `TOGETHER_API_KEY` | Vision (Together) for image prompts |
+| `TOGETHER_BASE_URL` | Optional; default `https://api.together.xyz/v1` |
+| `OPENAI_API_KEY` | Text model for refine, generate (text-only), grade |
+| `OPENAI_TEXT_MODEL` | Optional; default `gpt-5` |
 
 ## CLI
 
 ```bash
 cd Jihan
 pip install -r requirements.txt
+
+# Task 1, image + optional text
+python main.py --task task_1 --image ./chart.png --text "Summarise the chart..." --band 7
+
+# Task 2, text only
+python main.py --task task_2 --text-file ./prompt.txt --band 6.5
 ```
 
-Copy `.env.example` to `.env` and set:
-
-| Variable | Purpose |
-|----------|---------|
-| `TOGETHER_API_KEY` | Vision + text models (Together) |
-| `OPENAI_API_KEY` | Language extraction (GPT-4o) |
-
-```bash
-python main.py <image_path> [band_score] [database_path]
-```
-
-Example:
-
-```bash
-python main.py ./image.png 7
-python main.py ./task1_chart.png 7.5
-```
+After **ingest**, the CLI prompts for **planning** (generate vs grade-only, band, outline or essay). The graph then runs refine (if applicable), generate (if applicable), and **grade_and_refine**.
 
 ## Web demo
-
-![Web demo screenshot](webapp/screenshot.png)
-
-Upload a chart image, stream thinking logs, receive the essay, and perform HITL at three review points. Approved language units are saved to the gallery.
-
-| Section | Description |
-|---------|-------------|
-| **Upload** | Drag & drop image, choose band 6.0–8.5, click Generate Essay |
-| **Thinking** | Real-time status log |
-| **Final Essay** | Output after pipeline completes |
-| **Proposed Language Units** | Review → Edit/Approve/Reject → Save Approved |
-| **Language Gallery** | Open → grid by category, filter, Close |
-
-Design: dark theme (#0f1419, #1e2a3a), blue accent (#3b82f6). Fonts: Fraunces, Source Sans 3, JetBrains Mono.
 
 ```bash
 cd Jihan/webapp
@@ -92,26 +83,25 @@ pip install -r requirements.txt
 uvicorn app:app --reload --host 0.0.0.0
 ```
 
-Then open http://localhost:8000.
+Open `http://localhost:8000`. Submit task type, optional prompt text, optional image, then complete the **Planning** modal when the stream pauses.
 
-### API endpoints
+### API (v2)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | / | Home |
-| GET | /api/gallery | Taxonomy + items |
-| POST | /api/run | Upload image, returns `thread_id` |
-| GET | /api/stream/{thread_id} | SSE stream |
-| POST | /api/hitl/features | Submit reviewed features |
-| POST | /api/hitl/grading | Submit reviewed grading |
-| POST | /api/hitl/extractions | Submit approved items → `language_items.json` |
+| GET | `/` | Demo UI |
+| POST | `/api/run` | Form: `task_type`, `band_score`, `prompt_text`, optional `image` |
+| GET | `/api/stream/{thread_id}` | SSE: `thinking`, `interrupt`, `done` |
+| POST | `/api/hitl/planning` | Form: `thread_id`, `user_mode` (`generate` \| `grade_only`), `target_band`, `user_outline`, `user_essay` |
 
-## Models
+## Tests
 
-| Role | Model | Provider |
-|------|-------|----------|
-| Vision | Qwen/Qwen3-VL-8B-Instruct | Together |
-| Text (write, grade) | meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8 | Together |
-| Language extraction | gpt-4o | OpenAI |
+```bash
+cd Jihan
+pip install -r requirements.txt
+pytest tests/ -q
+```
 
-Override text model via `TOGETHER_TEXT_MODEL`. Use OpenAI for text with `USE_TOGETHER_FOR_TEXT=false`.
+## State (summary)
+
+`JihanState` holds `task_type`, `prompt_kind`, `source_image_path`, `source_prompt_text`, HITL fields (`user_mode`, `target_band`, `user_outline`, `user_essay`), pipeline fields (`refined_brief`, `generated_essay`, `essay_under_review`), and `grading_output` (`GradingAndRefinementResult`).
